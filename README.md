@@ -25,10 +25,13 @@ open System.Data.SqlClient
 let connectionString = 
     "Server=myServerAddress;Database=myDataBase;Trusted_Connection=True;"
 
-// Created our type DbConnectionFactory
+
+// Created our strongly typed DbConnectionFactory
 let connectionFactory : DbConnectionFactory = 
     fun _ -> new SqlConnection(connectionString) :> IDbConnection
 
+
+// Define our model
 type Author = 
     {
         AuthorId : int
@@ -40,6 +43,8 @@ type Author =
             FullName = rd.GetString("full_name") // IDataReader extension method
         }
 
+
+// Find author's by name
 let findAuthor search =
     use conn = createConn connectionFactory
 
@@ -50,6 +55,8 @@ let findAuthor search =
          [ newParam "search" search ]
          Author.fromReader
 
+
+// Create a new author
 let insertAuthor fullName =
     use conn = createConn connectionFactory
     use tran = beginTran conn // Base IDbCommand function's are transaction-oriented
@@ -65,6 +72,8 @@ let insertAuthor fullName =
 
     authorId 
 
+
+// Update an existing author
 let updateAuthor author =
     use conn = createConn connectionFactory
     use tran = beginTran conn 
@@ -79,6 +88,8 @@ let updateAuthor author =
 
     commitTran tran // safely commit transaction
 
+
+// Retrieve author by id
 let getAuthor authorId =
     use conn = createConn connectionFactory
 
