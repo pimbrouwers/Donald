@@ -68,13 +68,13 @@ module Sql =
     type IDbConnection with
         member this.Query sql param map =
             use tran = beginTran this
-            let results = query sql map param tran
+            let results = query sql param map tran
             commitTran tran
             results
 
         member this.QuerySingle sql param map =
             use tran = beginTran this
-            let result = querySingle sql map param tran
+            let result = querySingle sql param map tran
             commitTran tran
             result
 
@@ -90,18 +90,28 @@ module Sql =
             v
 
     type IDataReader with
-
         member this.GetBoolean(name)  = this.GetBoolean(this.GetOrdinal(name))
+
         member this.GetByte(name)     = this.GetByte(this.GetOrdinal(name))
+
         member this.GetChar(name)     = this.GetChar(this.GetOrdinal(name))
+
         member this.GetDateTime(name) = this.GetDateTime(this.GetOrdinal(name))
+
         member this.GetDecimal(name)  = this.GetDecimal(this.GetOrdinal(name))
+
         member this.GetDouble(name)   = this.GetDouble(this.GetOrdinal(name))
+
         member this.GetFloat(name)    = this.GetFloat(this.GetOrdinal(name))
+
         member this.GetGuid(name)     = this.GetGuid(this.GetOrdinal(name))
+
         member this.GetInt16(name)    = this.GetInt16(this.GetOrdinal(name))
+
         member this.GetInt32(name)    = this.GetInt32(this.GetOrdinal(name))
+
         member this.GetInt64(name)    = this.GetInt64(this.GetOrdinal(name))
+
         member this.GetString(name)   = this.GetString(this.GetOrdinal(name))
     
         member this.GetBooleanOption(name) =
