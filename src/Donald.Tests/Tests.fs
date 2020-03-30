@@ -10,7 +10,7 @@ open Donald
 open FsUnit.Xunit
 
 let connectionString = "Data Source=:memory:;Version=3;New=true;"
-let connectionFactory () = new SQLiteConnection(connectionString) :> IDbConnection
+let connectionFactory : DbConnectionFactory = fun _ -> new SQLiteConnection(connectionString) :> IDbConnection
 let conn = createConn connectionFactory
 
 type Author = 
