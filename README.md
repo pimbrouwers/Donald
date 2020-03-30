@@ -10,7 +10,7 @@ This library is named after him.
 
 ## Getting Started
 
-> If you came looking for an ORM, this is not your light saber and may the force be with you.
+> If you came looking for an ORM, this is not your light saber. May the force be with you.
 
 Donald is a library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit simpler. 
 
