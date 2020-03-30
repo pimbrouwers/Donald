@@ -6,7 +6,7 @@ Meet [Donald](https://en.wikipedia.org/wiki/Donald_D._Chamberlin).
 
 If you're a programmer and have used a database, he's impacted your life in a big way. 
 
-This library is named in his honour.
+This library is named after him.
 
 ## Getting Started
 
