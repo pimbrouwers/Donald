@@ -17,6 +17,9 @@ Donald is a library that aims to make working with [ADO.NET](https://docs.micros
 A script is worth a thousand words:
 
 ```fsharp
+// ------------
+// An example using SQL Server
+// ------------
 open System.Data.SqlClient
 
 let connectionString = 
