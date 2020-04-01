@@ -66,7 +66,7 @@ let insertAuthor fullName =
     let authorId = 
         scalar // ExecuteScalar() within scope of transaction
             "INSERT INTO author (full_name) VALUES (@full_name);
-             SELECT LAST_INSERT_ROWID();"
+             SELECT SCOPE_IDENTITY();"
             [ newParam "full_name" fullName]
             Convert.ToInt32 // Any obj -> int function would do here
 
