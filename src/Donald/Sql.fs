@@ -61,48 +61,47 @@ let newCommand sql param (tran : IDbTransaction) =
 let newParam name value =
     { Name = name; Value = value }
 
-let query sql param map tran =
+let tranQuery sql param map tran =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
     [ while rd.Read() do
         yield map rd ]
 
-let querySingle sql param map tran =
+let tranQuerySingle sql param map tran =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
     if rd.Read() then Some(map rd) else None
 
-let exec sql param tran =
+let tranExec sql param tran =
     use cmd = newCommand sql param tran    
     cmd.ExecuteNonQuery() |> ignore
 
-let scalar sql param map tran =
+let tranScalar sql param map tran =
     use cmd = newCommand sql param tran
     map (cmd.ExecuteScalar())
 
-type IDbConnection with
-    member this.Query sql param map =
-        use tran = beginTran this
-        let results = query sql param map tran
-        commitTran tran
-        results
+let query sql param map conn =
+    use tran = beginTran conn
+    let results = tranQuery sql param map tran
+    commitTran tran
+    results
 
-    member this.QuerySingle sql param map =
-        use tran = beginTran this
-        let result = querySingle sql param map tran
-        commitTran tran
-        result
+let querySingle sql param map conn =
+    use tran = beginTran conn
+    let result = tranQuerySingle sql param map tran
+    commitTran tran
+    result
 
-    member this.Execute sql param =
-        use tran = beginTran this
-        exec sql param tran
-        commitTran tran
+let exec sql param conn =
+    use tran = beginTran conn
+    tranExec sql param tran
+    commitTran tran
 
-    member this.Scalar sql param convert =
-        use tran = beginTran this
-        let v = scalar sql param convert tran
-        commitTran tran
-        v
+let scalar sql param convert conn =
+    use tran = beginTran conn
+    let v = tranScalar sql param convert tran
+    commitTran tran
+    v
 
 type IDataReader with
     member this.GetBoolean(name)  = this.GetBoolean(this.GetOrdinal(name))

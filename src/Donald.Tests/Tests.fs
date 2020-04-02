@@ -30,7 +30,7 @@ type DbFixture () =
         use sr = new StreamReader(fs)
         let sql = sr.ReadToEnd()
 
-        conn.Execute sql []
+        exec sql [] conn
                   
     interface IDisposable with
         member __.Dispose() = 
@@ -109,24 +109,26 @@ module IntegrationTests =
         [<Fact>]
         member __.``Can query multiple records`` () =            
             let authors =
-                conn.Query 
+                query 
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id IN (1,2)"
                      []
                      Author.fromReader
+                     conn
             
             authors.Length |> should equal 2
 
         [<Fact>]
         member __.``Can query single record`` () =            
             let author =
-                conn.QuerySingle
+                querySingle
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id = 1"
                      []
                      Author.fromReader
+                     conn
             
             author.IsSome         |> should equal true
             author.Value.AuthorId |> should equal 1
@@ -135,19 +137,21 @@ module IntegrationTests =
         member __.``INSERT author then retrieve to verify`` () =
             let fullName = "Jane Doe"
             let authorId = 
-                conn.Scalar
+                 scalar
                     "INSERT INTO author (full_name) VALUES (@full_name);
                      SELECT LAST_INSERT_ROWID();"
                     [ newParam "full_name" fullName]
                     Convert.ToInt32
+                    conn 
 
             let author = 
-                conn.QuerySingle
+                querySingle
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id = @author_id"
                      [ newParam "author_id" authorId ]
-                     Author.fromReader            
+                     Author.fromReader       
+                     conn
 
             author.IsSome |> should equal true
 
@@ -161,20 +165,22 @@ module IntegrationTests =
         member __.``UPDATE author then retrieve to verify`` () =
             let authorId = 1
             let fullName = "Jim Brouwers"
-            conn.Execute
+            exec
                 "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
                 [ 
                     newParam "author_id" authorId
                     newParam "full_name" fullName 
                 ]
+                conn
                 
             let author = 
-                conn.QuerySingle
+                querySingle
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id = @author_id"
                      [ newParam "author_id" authorId ]
                      Author.fromReader            
+                     conn 
 
             author.IsSome |> should equal true
 

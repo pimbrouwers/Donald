@@ -37,7 +37,8 @@ type Author =
         AuthorId : int
         FullName : string
     }
-    static member fromReader (rd : IDataReader) = // Not mandatory, but helpful
+		// Not mandatory, but helpful
+    static member fromReader (rd : IDataReader) = 
         {
             AuthorId = rd.GetInt32("author_id")  // IDataReader extension method
             FullName = rd.GetString("full_name") // IDataReader extension method
@@ -48,12 +49,13 @@ type Author =
 let findAuthor search =
     use conn = createConn connectionFactory
 
-    conn.Query // IDbConnection extension method
+    	query // IDbConnection extension method
         "SELECT author_id, full_name
          FROM   author
          WHERE  full_name LIKE @search"
-         [ newParam "search" search ]
-         Author.fromReader
+        [ newParam "search" search ]
+        Author.fromReader
+				conn
 
 
 // Create a new author
@@ -62,11 +64,12 @@ let insertAuthor fullName =
     use tran = beginTran conn // Base IDbCommand function's are transaction-oriented
     
     let authorId = 
-        scalar // ExecuteScalar() within scope of transaction
+        tranScalar // ExecuteScalar() within scope of transaction
             "INSERT INTO author (full_name) VALUES (@full_name);
              SELECT LAST_INSERT_ROWID();"
             [ newParam "full_name" fullName]
             Convert.ToInt32 // Any obj -> int function would do here
+						tran
 
     commitTran tran
 
@@ -78,7 +81,7 @@ let updateAuthor author =
     use conn = createConn connectionFactory
     use tran = beginTran conn 
 
-    exec // ExecuteNonQuery() within scope of transaction
+    tranExec // ExecuteNonQuery() within scope of transaction
         "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
         [ 
             newParam "author_id" author.AuthorId
@@ -93,12 +96,13 @@ let updateAuthor author =
 let getAuthor authorId =
     use conn = createConn connectionFactory
 
-    conn.QuerySingle // Returns Option<Author>
+    querySingle // Returns Option<Author>
         "SELECT author_id, full_name
          FROM   author
          WHERE  author_id = @author_id"
          [ newParam "author_id" authorId ]
-         Author.fromReader  
+         Author.fromReader 
+				 conn
 ```
 
 ## Find a bug?
