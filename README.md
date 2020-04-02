@@ -6,13 +6,15 @@ Meet [Donald](https://en.wikipedia.org/wiki/Donald_D._Chamberlin).
 
 If you're a programmer and have used a database, he's impacted your life in a big way. 
 
-This library is named in his honour.
+This library is named after him.
 
 ## Getting Started
 
-> If you came looking for an ORM, this is not your light saber and may the force be with you.
+> If you came looking for an ORM, this is not your light saber. May the force be with you.
 
-Donald is a library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit simpler. Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()`.
+Donald is a library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit simpler. 
+
+Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and some familiar `IDbConnection` extension methods.
 
 A script is worth a thousand words:
 
@@ -66,7 +68,7 @@ let insertAuthor fullName =
     let authorId = 
         tranScalar // ExecuteScalar() within scope of transaction
             "INSERT INTO author (full_name) VALUES (@full_name);
-             SELECT LAST_INSERT_ROWID();"
+             SELECT SCOPE_IDENTITY();"
             [ newParam "full_name" fullName]
             Convert.ToInt32 // Any obj -> int function would do here
 						tran
