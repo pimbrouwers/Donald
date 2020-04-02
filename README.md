@@ -14,7 +14,7 @@ This library is named after him.
 
 Donald is a library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit simpler. 
 
-Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and some familiar `IDbConnection` extension methods.
+Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()`.
 
 A script is worth a thousand words:
 
@@ -39,7 +39,7 @@ type Author =
         AuthorId : int
         FullName : string
     }
-		// Not mandatory, but helpful
+    // Not mandatory, but helpful
     static member fromReader (rd : IDataReader) = 
         {
             AuthorId = rd.GetInt32("author_id")  // IDataReader extension method
@@ -51,19 +51,19 @@ type Author =
 let findAuthor search =
     use conn = createConn connectionFactory
 
-    	query // IDbConnection extension method
-        "SELECT author_id, full_name
+    query
+         "SELECT author_id, full_name
          FROM   author
          WHERE  full_name LIKE @search"
         [ newParam "search" search ]
         Author.fromReader
-				conn
+	conn
 
 
 // Create a new author
 let insertAuthor fullName =
     use conn = createConn connectionFactory
-    use tran = beginTran conn // Base IDbCommand function's are transaction-oriented
+    use tran = beginTran conn // Base function's are transaction-oriented
     
     let authorId = 
         tranScalar // ExecuteScalar() within scope of transaction
@@ -71,7 +71,7 @@ let insertAuthor fullName =
              SELECT SCOPE_IDENTITY();"
             [ newParam "full_name" fullName]
             Convert.ToInt32 // Any obj -> int function would do here
-						tran
+	    tran
 
     commitTran tran
 
@@ -104,7 +104,7 @@ let getAuthor authorId =
          WHERE  author_id = @author_id"
          [ newParam "author_id" authorId ]
          Author.fromReader 
-				 conn
+	 conn
 ```
 
 ## Find a bug?
