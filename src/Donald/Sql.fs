@@ -20,12 +20,10 @@ let beginTran (conn : IDbConnection) =
     conn.BeginTransaction()
 
 let rollbackTran (tran : IDbTransaction) =
-    try
+    try        
         if not(isNull tran) 
            && not(isNull tran.Connection) then tran.Rollback()
-    with    
-        // swallow these since most connector libs do not
-        // accurately emit System.InvalidOperationException
+    with            
         | _ -> 
             reraise() 
 
