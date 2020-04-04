@@ -23,6 +23,7 @@ A script is worth a thousand words:
 // An example using SQL Server
 // ------------
 open System.Data.SqlClient
+open Donald
 
 let connectionString = 
     "Server=myServerAddress;Database=myDataBase;Trusted_Connection=True;"
