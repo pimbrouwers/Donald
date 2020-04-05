@@ -13,7 +13,7 @@ This library is named after him.
 
 > If you came looking for an ORM, this is not your light saber. May the force be with you.
 
-Donald is a library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit simpler. 
+Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit simpler. 
 
 Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()`.
 
@@ -37,6 +37,7 @@ A script is worth a thousand words:
 // An example using SQL Server
 // ------------
 open System.Data.SqlClient
+open Donald
 
 let connectionString = 
     "Server=myServerAddress;Database=myDataBase;Trusted_Connection=True;"
