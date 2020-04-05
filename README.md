@@ -1,5 +1,6 @@
 # Donald
 
+![NuGet Version](https://img.shields.io/nuget/v/Donald.svg)
 [![Build Status](https://travis-ci.org/pimbrouwers/Donald.svg?branch=master)](https://travis-ci.org/pimbrouwers/Donald)
 
 Meet [Donald](https://en.wikipedia.org/wiki/Donald_D._Chamberlin). 
@@ -15,6 +16,19 @@ This library is named after him.
 Donald is a library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit simpler. 
 
 Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()`.
+
+Install the [Donald](https://www.nuget.org/packages/Donald/) NuGet package:
+
+```
+PM>  Install-Package Donald
+```
+
+Or using the dotnet CLI
+```cmd
+dotnet add package Donald
+```
+
+## Example
 
 A script is worth a thousand words:
 
