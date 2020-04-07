@@ -11,11 +11,11 @@ This library is named after him.
 
 ## Getting Started
 
-> If you came looking for an ORM, this is not your light saber. May the force be with you.
+Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. 
 
-Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit simpler. 
+Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and a full-suite of `IDataReader` extension methods to make retrieving values safer and more direct.
 
-Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()`. 
+> If you came looking for an ORM, this is not your light saber. And may the force be with you.
 
 Install the [Donald](https://www.nuget.org/packages/Donald/) NuGet package:
 
