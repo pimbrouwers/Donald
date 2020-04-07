@@ -66,8 +66,8 @@ let findAuthor search =
 
     query
          "SELECT author_id, full_name
-         FROM   author
-         WHERE  full_name LIKE @search"
+          FROM   author
+          WHERE  full_name LIKE @search"
         [ newParam "search" search ]
         Author.fromReader
 	conn
@@ -102,7 +102,9 @@ let updateAuthor author =
     use tran = beginTran conn 
 
     tranExec // ExecuteNonQuery() within scope of transaction
-        "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
+        "UPDATE author 
+         SET    full_name = @full_name 
+         WHERE  author_id = @author_id"
         [ 
             newParam "author_id" author.AuthorId
             newParam "full_name" author.FullName
@@ -121,7 +123,9 @@ let insertAuthor fullName =
     
     let authorId = 
         tranScalar // ExecuteScalar() within scope of transaction
-            "INSERT INTO author (full_name) VALUES (@full_name);
+            "INSERT INTO author (full_name) 
+             VALUES (@full_name);
+
              SELECT SCOPE_IDENTITY();"
             [ newParam "full_name" fullName]
             Convert.ToInt32 // Any obj -> int function would do here
@@ -139,7 +143,7 @@ To make obtaining values from reader more straight-forward, 3 sets of extension 
 2. Get value as `option<'a>`
 3. Get value as `Nullable<'a>`
 
-Assume we have an open `IDataReader` and are currently reading a row, the `IDataRecord`.
+Assume we have an open `IDataReader` and are currently reading a row, the `IDataRecord`:
 
 ```f#
 rd.GetString "some_field"           // string -> string
