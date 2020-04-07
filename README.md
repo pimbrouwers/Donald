@@ -88,6 +88,12 @@ let getAuthor authorId =
      conn
 ```
 
+### Doing work transactionally
+
+The four main API functions: `query`, `querySingle`, `scalar` and `exec`, all have transactional sister functions: `tranQuery`, `tranQuerySingle`, `tranScalar`, `tranExec`. 
+
+> As opposed to an `IDbConnection`, these methods expect an `IDbTransaction` as the final paramter.
+
 ### Execute a statement
 
 ```f#
