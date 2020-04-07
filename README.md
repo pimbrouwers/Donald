@@ -132,6 +132,55 @@ let insertAuthor fullName =
     authorId 
 ```
 
+## `IDataReader` Extension Methods
+
+To make obtaining values from reader more straight-forward, 3 sets of extension methods are available for:
+1. Get value, automatically defaulted
+2. Get value as `option<'a>`
+3. Get value as `Nullable<'a>`
+
+Assume we have an open `IDataReader` and are currently reading a row, the `IDataRecord`.
+
+```f#
+rd.GetString "some_field"           // string -> string
+rd.GetBoolean "some_field"          // string -> bool
+rd.GetByte "some_field"             // string -> byte
+rd.GetChar "some_field"             // string -> char
+rd.GetDateTime "some_field"         // string -> DateTime
+rd.GetDecimal "some_field"          // string -> Decimal
+rd.GetDouble "some_field"           // string -> Double
+rd.GetFloat "some_field"            // string -> float32
+rd.GetGuid "some_field"             // string -> Guid
+rd.GetInt16 "some_field"            // string -> int16
+rd.GetInt32 "some_field"            // string -> int32
+rd.GetInt64 "some_field"            // string -> int64
+
+rd.GetStringOption "some_field"     // string -> string option
+rd.GetBooleanOption "some_field"    // string -> bool option
+rd.GetByteOption "some_field"       // string -> byte option
+rd.GetCharOption "some_field"       // string -> char option
+rd.GetDateTimeOption "some_field"   // string -> DateTime option
+rd.GetDecimalOption "some_field"    // string -> Decimal option
+rd.GetDoubleOption "some_field"     // string -> Double option
+rd.GetFloatOption "some_field"      // string -> float32 option
+rd.GetGuidOption "some_field"       // string -> Guid option
+rd.GetInt16Option "some_field"      // string -> int16 option
+rd.GetInt32Option "some_field"      // string -> int32 option
+rd.GetInt64Option "some_field"      // string -> int64 option
+
+rd.GetNullableBoolean "some_field"  // string -> Nullable<bool>
+rd.GetNullableByte "some_field"     // string -> Nullable<byte>
+rd.GetNullableChar "some_field"     // string -> Nullable<char>
+rd.GetNullableDateTime "some_field" // string -> Nullable<DateTime>
+rd.GetNullableDecimal "some_field"  // string -> Nullable<Decimal>
+rd.GetNullableDouble "some_field"   // string -> Nullable<Double>
+rd.GetNullableFloat "some_field"    // string -> Nullable<float32>
+rd.GetNullableGuid "some_field"     // string -> Nullable<Guid>
+rd.GetNullableInt16 "some_field"    // string -> Nullable<int16>
+rd.GetNullableInt32 "some_field"    // string -> Nullable<int32>
+rd.GetNullableInt64 "some_field"    // string -> Nullable<int64>
+```
+
 ## Find a bug?
 
 There's an [issue](https://github.com/pimbrouwers/Donald/issues) for that.
