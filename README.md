@@ -1,7 +1,7 @@
 # Donald
 
-[![Build Status](https://travis-ci.org/pimbrouwers/Donald.svg?branch=master)](https://travis-ci.org/pimbrouwers/Donald)
 ![NuGet Version](https://img.shields.io/nuget/v/Donald.svg)
+[![Build Status](https://travis-ci.org/pimbrouwers/Donald.svg?branch=master)](https://travis-ci.org/pimbrouwers/Donald)
 
 Meet [Donald](https://en.wikipedia.org/wiki/Donald_D._Chamberlin). 
 
@@ -15,7 +15,7 @@ This library is named after him.
 
 Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit simpler. 
 
-Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()`.
+Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()`. 
 
 Install the [Donald](https://www.nuget.org/packages/Donald/) NuGet package:
 
@@ -28,27 +28,11 @@ Or using the dotnet CLI
 dotnet add package Donald
 ```
 
-## Example
+## An example using SQL Server
 
-A script is worth a thousand words:
+Consider the following model:
 
-```fsharp
-// ------------
-// An example using SQL Server
-// ------------
-open System.Data.SqlClient
-open Donald
-
-let connectionString = 
-    "Server=myServerAddress;Database=myDataBase;Trusted_Connection=True;"
-
-
-// Created our strongly typed DbConnectionFactory
-let connectionFactory : DbConnectionFactory = 
-    fun _ -> new SqlConnection(connectionString) :> IDbConnection
-
-
-// Define our model
+```f#
 type Author = 
     {
         AuthorId : int
@@ -60,9 +44,23 @@ type Author =
             AuthorId = rd.GetInt32("author_id")  // IDataReader extension method
             FullName = rd.GetString("full_name") // IDataReader extension method
         }
+```
 
+### Define a `DbConnectionFactory`
+```f#
+open System.Data.SqlClient
+open Donald
 
-// Find author's by name
+let connectionString = 
+    "Server=MY_SERVER;Database=MyDatabase;Trusted_Connection=True;"
+
+let connectionFactory : DbConnectionFactory = 
+    fun _ -> new SqlConnection(connectionString) :> IDbConnection
+```
+
+### Query for multiple strongly-typed results
+
+```f#
 let findAuthor search =
     use conn = createConn connectionFactory
 
@@ -73,9 +71,44 @@ let findAuthor search =
         [ newParam "search" search ]
         Author.fromReader
 	conn
+```
 
+### Query for exactly one strongly-type result
 
-// Create a new author
+```f#
+let getAuthor authorId =
+    use conn = createConn connectionFactory
+
+    querySingle // Returns Option<Author>
+        "SELECT author_id, full_name
+         FROM   author
+         WHERE  author_id = @author_id"
+         [ newParam "author_id" authorId ]
+         Author.fromReader 
+     conn
+```
+
+### Execute a statement
+
+```f#
+let updateAuthor author =
+    use conn = createConn connectionFactory
+    use tran = beginTran conn 
+
+    tranExec // ExecuteNonQuery() within scope of transaction
+        "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
+        [ 
+            newParam "author_id" author.AuthorId
+            newParam "full_name" author.FullName
+        ]
+        tran
+
+    commitTran tran // safely commit transaction
+```
+
+### Execute a statement that returns a value
+
+```f#
 let insertAuthor fullName =
     use conn = createConn connectionFactory
     use tran = beginTran conn // Base function's are transaction-oriented
@@ -91,35 +124,6 @@ let insertAuthor fullName =
     commitTran tran
 
     authorId 
-
-
-// Update an existing author
-let updateAuthor author =
-    use conn = createConn connectionFactory
-    use tran = beginTran conn 
-
-    tranExec // ExecuteNonQuery() within scope of transaction
-        "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
-        [ 
-            newParam "author_id" author.AuthorId
-            newParam "full_name" author.FullName
-        ]
-        tran
-
-    commitTran tran // safely commit transaction
-
-
-// Retrieve author by id
-let getAuthor authorId =
-    use conn = createConn connectionFactory
-
-    querySingle // Returns Option<Author>
-        "SELECT author_id, full_name
-         FROM   author
-         WHERE  author_id = @author_id"
-         [ newParam "author_id" authorId ]
-         Author.fromReader 
-	 conn
 ```
 
 ## Find a bug?

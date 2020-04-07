@@ -3,10 +3,10 @@
 open System
 open System.Data
 
-/// Represents the ability to create a new IDbConnection
+// Represents the ability to create a new IDbConnection
 type DbConnectionFactory = unit -> IDbConnection
 
-/// Specifies an input parameter for an IDbCommand
+// Specifies an input parameter for an IDbCommand
 [<Struct>]
 type DbParam = 
     { 
@@ -14,16 +14,16 @@ type DbParam =
         Value : obj 
     }
 
-/// Create new instance of IDbConnection using provided DbConnectionFactory
+// Create new instance of IDbConnection using provided DbConnectionFactory
 let createConn (createConnection : DbConnectionFactory) =
     createConnection ()    
   
-/// Create a new IDbTransaction
+// Create a new IDbTransaction
 let beginTran (conn : IDbConnection) = 
     if conn.State <> ConnectionState.Open then conn.Open()
     conn.BeginTransaction()
 
-/// Rollback IDbTransaction
+// Rollback IDbTransaction
 let rollbackTran (tran : IDbTransaction) =
     try        
         if not(isNull tran) 
@@ -32,7 +32,7 @@ let rollbackTran (tran : IDbTransaction) =
         | _ -> 
             reraise() 
 
-/// Attempt to commit IDbTransaction, rollback if failed.
+// Attempt to commit IDbTransaction, rollback if failed.
 let commitTran (tran : IDbTransaction) =
     try
         if not(isNull tran) 
@@ -45,7 +45,7 @@ let commitTran (tran : IDbTransaction) =
             rollbackTran tran
             reraise()
 
-/// Create a new IDbTransaction   
+// Create a new IDbTransaction   
 let newCommand (sql : string) (dbParams : DbParam list) (tran : IDbTransaction) =
     let cmd = tran.Connection.CreateCommand()
     cmd.CommandType <- CommandType.Text
@@ -61,54 +61,54 @@ let newCommand (sql : string) (dbParams : DbParam list) (tran : IDbTransaction) 
 
     cmd
 
-/// DbParam constructor
+// DbParam constructor
 let newParam name value =
     { Name = name; Value = value }
 
-/// Query for multiple results within transaction scope
+// Query for multiple results within transaction scope
 let tranQuery sql param map tran =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
     [ while rd.Read() do
         yield map rd ]
 
-/// Query for single result within transaction scope
+// Query for single result within transaction scope
 let tranQuerySingle sql param map tran =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
     if rd.Read() then Some(map rd) else None
 
-/// Execute query with no results within transction scope
+// Execute query with no results within transction scope
 let tranExec sql param tran =
     use cmd = newCommand sql param tran    
     cmd.ExecuteNonQuery() |> ignore
 
-/// Execute query that returns scalar result within transcation scope
+// Execute query that returns scalar result within transcation scope
 let tranScalar sql param convert tran =
     use cmd = newCommand sql param tran
     convert (cmd.ExecuteScalar())
 
-/// Query for multiple results
+// Query for multiple results
 let query sql param map conn =
     use tran = beginTran conn
     let results = tranQuery sql param map tran
     commitTran tran
     results
 
-/// Query for single result
+// Query for single result
 let querySingle sql param map conn =
     use tran = beginTran conn
     let result = tranQuerySingle sql param map tran
     commitTran tran
     result
 
-/// Execute query with no results
+// Execute query with no results
 let exec sql param conn =
     use tran = beginTran conn
     tranExec sql param tran
     commitTran tran
 
-/// Execute query with scalar result
+// Execute query with scalar result
 let scalar sql param convert conn =
     use tran = beginTran conn
     let v = tranScalar sql param convert tran
