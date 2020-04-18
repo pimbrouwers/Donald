@@ -62,54 +62,54 @@ let newCommand (sql : string) (dbParams : DbParam list) (tran : IDbTransaction) 
     cmd
 
 // DbParam constructor
-let newParam name value =
+let newParam (name : string) (value : 'a) =
     { Name = name; Value = value }
 
 // Query for multiple results within transaction scope
-let tranQuery sql param map tran =
+let tranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
     [ while rd.Read() do
         yield map rd ]
 
 // Query for single result within transaction scope
-let tranQuerySingle sql param map tran =
+let tranQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
     if rd.Read() then Some(map rd) else None
 
 // Execute query with no results within transction scope
-let tranExec sql param tran =
+let tranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran    
     cmd.ExecuteNonQuery() |> ignore
 
 // Execute query that returns scalar result within transcation scope
-let tranScalar sql param convert tran =
+let tranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran
     convert (cmd.ExecuteScalar())
 
 // Query for multiple results
-let query sql param map conn =
+let query (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
     use tran = beginTran conn
     let results = tranQuery sql param map tran
     commitTran tran
     results
 
 // Query for single result
-let querySingle sql param map conn =
+let querySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
     use tran = beginTran conn
     let result = tranQuerySingle sql param map tran
     commitTran tran
     result
 
 // Execute query with no results
-let exec sql param conn =
+let exec (sql : string) (param : DbParam list) (conn : IDbConnection) =
     use tran = beginTran conn
     tranExec sql param tran
     commitTran tran
 
 // Execute query with scalar result
-let scalar sql param convert conn =
+let scalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : IDbConnection) =
     use tran = beginTran conn
     let v = tranScalar sql param convert tran
     commitTran tran
