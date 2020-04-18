@@ -68,9 +68,9 @@ let findAuthor search =
          "SELECT author_id, full_name
           FROM   author
           WHERE  full_name LIKE @search"
-        [ newParam "search" search ]
-        Author.fromReader
-	conn
+          [ newParam "search" search ]
+          Author.fromReader
+	  conn
 ```
 
 ### Query for exactly one strongly-type result
@@ -85,7 +85,7 @@ let getAuthor authorId =
          WHERE  author_id = @author_id"
          [ newParam "author_id" authorId ]
          Author.fromReader 
-     conn
+         conn
 ```
 
 ### Doing work transactionally
