@@ -20,7 +20,7 @@
 
     <!-- NuGet config -->
     <PackageId>Donald</PackageId>
-    <PackageVersion>1.0.0</PackageVersion>
+    <PackageVersion>1.0.1</PackageVersion>
     <PackageTags>fsharp;functional;database;sql;ado;adonet</PackageTags>        
     <PackageProjectUrl>https://github.com/pimbrouwers/Donald</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -34,7 +34,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.7.*" />
+    <PackageReference Include="FSharp.Core" Version="4.5.2" />
   </ItemGroup>
 
   <ItemGroup>
