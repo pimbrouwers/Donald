@@ -114,6 +114,25 @@ let updateAuthor author =
     commitTran tran // safely commit transaction
 ```
 
+### Execute a statement many times
+
+```f#
+let updateAuthor author =
+    use conn = createConn connectionFactory
+    use tran = beginTran conn 
+
+    execMany
+        "INSERT INTO author (full_name) VALUES (@full_name);"                
+        [
+            [ newParam "full_name" "Bugs Bunny" ]
+            [ newParam "full_name" "Donald Duck" ]
+        ]                        
+        tran    
+  
+    commitTran tran
+```
+
+
 ### Execute a statement that returns a value
 
 ```f#

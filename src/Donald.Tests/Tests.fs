@@ -162,6 +162,24 @@ module IntegrationTests =
                 ()
 
         [<Fact>]
+        member __.``INSERT MANY authors then count to verify`` () =
+            let initialCount = scalar "SELECT COUNT(author_id) FROM author" [] Convert.ToInt32 conn
+           
+            let authorParams = 
+                [
+                    [ newParam "full_name" "Bugs Bunny" ]
+                    [ newParam "full_name" "Donald Duck" ]
+                ]                
+            execMany
+                "INSERT INTO author (full_name) VALUES (@full_name);"                
+                authorParams
+                conn 
+            
+            let afterCount = scalar "SELECT COUNT(author_id) FROM author" [] Convert.ToInt32 conn
+            
+            initialCount + authorParams.Length |> should equal afterCount
+
+        [<Fact>]
         member __.``UPDATE author then retrieve to verify`` () =
             let authorId = 1
             let fullName = "Jim Brouwers"
