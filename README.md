@@ -117,11 +117,11 @@ let updateAuthor author =
 ### Execute a statement many times
 
 ```f#
-let updateAuthor author =
+let insertAuthors =
     use conn = createConn connectionFactory
     use tran = beginTran conn 
 
-    execMany
+    tranExecMany
         "INSERT INTO author (full_name) VALUES (@full_name);"                
         [
             [ newParam "full_name" "Bugs Bunny" ]
