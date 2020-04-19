@@ -39,7 +39,7 @@ type Author =
         FullName : string
     }
     // Not mandatory, but helpful
-    static member fromReader (rd : IDataReader) = 
+    static member FromReader (rd : IDataReader) = 
         {
             AuthorId = rd.GetInt32("author_id")  // IDataReader extension method
             FullName = rd.GetString("full_name") // IDataReader extension method
