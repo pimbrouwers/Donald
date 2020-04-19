@@ -41,8 +41,9 @@ type Author =
     // Not mandatory, but helpful
     static member FromReader (rd : IDataReader) = 
         {
-            AuthorId = rd.GetInt32("author_id")  // IDataReader extension method
-            FullName = rd.GetString("full_name") // IDataReader extension method
+            // IDataReader extension method (see below)
+            AuthorId = rd.GetInt32("author_id")  
+            FullName = rd.GetString("full_name")
         }
 ```
 
@@ -105,11 +106,11 @@ let updateAuthor author =
         "UPDATE author 
          SET    full_name = @full_name 
          WHERE  author_id = @author_id"
-        [ 
-            newParam "author_id" author.AuthorId
-            newParam "full_name" author.FullName
-        ]
-        tran
+         [ 
+             newParam "author_id" author.AuthorId
+             newParam "full_name" author.FullName
+         ]
+         tran
 
     commitTran tran // safely commit transaction
 ```
@@ -142,13 +143,11 @@ let insertAuthor fullName =
     
     let authorId = 
         tranScalar // ExecuteScalar() within scope of transaction
-            "INSERT INTO author (full_name) 
-             VALUES (@full_name);
-
+            "INSERT INTO author (full_name) VALUES (@full_name);
              SELECT SCOPE_IDENTITY();"
-            [ newParam "full_name" fullName]
-            Convert.ToInt32 // Any obj -> int function would do here
-	    tran
+             [ newParam "full_name" fullName]
+             Convert.ToInt32 // Any obj -> int function would do here
+	     tran
 
     commitTran tran
 
