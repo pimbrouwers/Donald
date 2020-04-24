@@ -106,8 +106,10 @@ module IntegrationTests =
             |> System.Convert.ToInt32
             |> should equal 2
 
+    [<Collection("Db")>]
+    type Statements() =         
         [<Fact>]
-        member __.``Can query multiple records`` () =            
+        member __.``SELECT records`` () =            
             let authors =
                 query 
                     "SELECT author_id, full_name
@@ -120,7 +122,40 @@ module IntegrationTests =
             authors.Length |> should equal 2
 
         [<Fact>]
-        member __.``Can query single record`` () =            
+        member __.``try SELECT records`` () =            
+            let authorsResult =
+                tryQuery 
+                    "SELECT author_id, full_name
+                     FROM   author
+                     WHERE  author_id IN (1,2)"
+                     []
+                     Author.fromReader
+                     conn
+            
+            authorsResult |> should be instanceOfType<DbResult<Author list>>
+            
+            match authorsResult with
+            | Ok authors -> authors.Length |> should equal 2
+            | _ -> "DbResult should not be DbError" |> should equal false
+
+        [<Fact>]
+        member __.``SELECT records should fail and create DbError`` () =
+            let authorsResult =
+                tryQuery 
+                    "SELECT author_id, full_name
+                     FROM   fake_author"
+                     []
+                     Author.fromReader
+                     conn
+            
+            authorsResult |> should be instanceOfType<DbResult<Author list>>
+            
+            match authorsResult with
+            | DbError ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "DbResult should not be Ok" |> should equal false
+
+        [<Fact>]
+        member __.``SELECT single record`` () =            
             let author =
                 querySingle
                     "SELECT author_id, full_name
@@ -133,6 +168,44 @@ module IntegrationTests =
             author.IsSome         |> should equal true
             author.Value.AuthorId |> should equal 1
 
+        [<Fact>]
+        member __.``try SELECT single record`` () =            
+            let authorResult =
+                tryQuerySingle
+                    "SELECT author_id, full_name
+                     FROM   author
+                     WHERE  author_id = 1"
+                     []
+                     Author.fromReader
+                     conn
+                        
+            authorResult |> should be instanceOfType<DbResult<Author option>>
+            
+            match authorResult with
+            | Ok author ->                
+                match author with 
+                | Some author -> 
+                    author.AuthorId |> should equal 1
+                | None ->  "Author should not be None" |> should equal false
+            | _ -> "DbResult should not be DbError" |> should equal false
+
+        [<Fact>]
+        member __.``SELECT single record should fail and create DbError`` () =            
+            let authorResult =
+                tryQuerySingle
+                    "SELECT author_id, full_name
+                     FROM   fake_author
+                     WHERE  AND author_id = 1"
+                     []
+                     Author.fromReader
+                     conn
+
+            authorResult |> should be instanceOfType<DbResult<Author option>>
+            
+            match authorResult with
+            | DbError ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "DbResult should not be Ok" |> should equal false
+            
         [<Fact>]
         member __.``INSERT author then retrieve to verify`` () =
             let fullName = "Jane Doe"
@@ -162,6 +235,22 @@ module IntegrationTests =
                 ()
 
         [<Fact>]
+        member __.``INSERT author should fail and create DbError`` () =
+            let fullName = "Jane Doe"
+            let authorIdResult = 
+                 tryScalar
+                    "INSERT INTO fake_author (full_name) VALUES (@full_nameaaaa);"
+                    [ newParam "full_name" fullName]
+                    Convert.ToInt32
+                    conn 
+
+            authorIdResult |> should be instanceOfType<DbResult<int>>
+            
+            match authorIdResult with
+            | DbError ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "DbResult should not be Ok" |> should equal false
+
+        [<Fact>]
         member __.``INSERT MANY authors then count to verify`` () =
             let initialCount = scalar "SELECT COUNT(author_id) FROM author" [] Convert.ToInt32 conn
            
@@ -178,6 +267,26 @@ module IntegrationTests =
             let afterCount = scalar "SELECT COUNT(author_id) FROM author" [] Convert.ToInt32 conn
             
             initialCount + authorParams.Length |> should equal afterCount
+
+        [<Fact>]
+        member __.``INSERT MANY should fail and create DbError`` () =
+            let authorParams = 
+                [
+                    [ newParam "full_name" "Bugs Bunny" ]
+                    [ newParam "full_name" "Donald Duck" ]
+                ]   
+                
+            let authorsResult =
+                tryExecMany
+                    "INSERT INTO fake_author (full_name) VALUES (@full_nadsame);"                
+                    authorParams
+                    conn 
+
+            authorsResult |> should be instanceOfType<DbResult<unit>>
+
+            match authorsResult with
+            | DbError ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "DbResult should not be Ok" |> should equal false
 
         [<Fact>]
         member __.``UPDATE author then retrieve to verify`` () =
@@ -207,3 +316,22 @@ module IntegrationTests =
                 author.FullName |> should equal fullName
             | None -> 
                 ()
+        
+        [<Fact>]
+        member __.``UPDATE should fail and create DbError`` () =
+            let authorId = 1
+            let fullName = "Jim Brouwers"
+            let authorResult =
+                tryExec
+                    "UPDATE fake_author SET full_name = @full_name WHERE aauthor_id = @author_idda"
+                    [ 
+                        newParam "author_id" authorId
+                        newParam "full_name" fullName 
+                    ]
+                    conn
+
+            authorResult |> should be instanceOfType<DbResult<unit>>
+                
+            match authorResult with
+            | DbError ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "DbResult should not be Ok" |> should equal false
