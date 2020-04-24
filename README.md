@@ -9,6 +9,8 @@ If you're a programmer and have used a database, he's impacted your life in a bi
 
 This library is named after him.
 
+> Honorable mention goes to [@dysme](https://github.com/dsyme) another important Donald and F#'s [BDFL](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life).
+
 ## Getting Started
 
 Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. 
