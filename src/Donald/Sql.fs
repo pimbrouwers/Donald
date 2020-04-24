@@ -3,10 +3,16 @@
 open System
 open System.Data
 
-// Represents the ability to create a new IDbConnection
+/// Represents the ability to create a new IDbConnection
 type DbConnectionFactory = unit -> IDbConnection
 
-// Specifies an input parameter for an IDbCommand
+/// Represents the result of an action against the database
+/// or, an encapsulation of the exception thrown
+type DbResult<'a> =
+    | Ok      of 'a    
+    | DbError of Exception
+
+/// Specifies an input parameter for an IDbCommand
 [<Struct>]
 type DbParam = 
     { 
@@ -14,16 +20,17 @@ type DbParam =
         Value : obj 
     }
 
-// Create new instance of IDbConnection using provided DbConnectionFactory
+
+/// Create new instance of IDbConnection using provided DbConnectionFactory
 let createConn (createConnection : DbConnectionFactory) =
     createConnection ()    
   
-// Create a new IDbTransaction
+/// Create a new IDbTransaction
 let beginTran (conn : IDbConnection) = 
     if conn.State <> ConnectionState.Open then conn.Open()
     conn.BeginTransaction()
 
-// Rollback IDbTransaction
+/// Rollback IDbTransaction
 let rollbackTran (tran : IDbTransaction) =
     try        
         if not(isNull tran) 
@@ -32,20 +39,21 @@ let rollbackTran (tran : IDbTransaction) =
         | _ -> 
             reraise() 
 
-// Attempt to commit IDbTransaction, rollback if failed.
+/// Attempt to commit IDbTransaction, rollback if failed.
 let commitTran (tran : IDbTransaction) =
     try
         if not(isNull tran) 
            && not(isNull tran.Connection) then tran.Commit() 
     with
-        // Is supposed to throw System.InvalidOperationException
-        // when commmited or rolled back already, but most
-        // implementations do not. So in all cases try rolling back
+        /// Is supposed to throw System.InvalidOperationException
+        /// when commmited or rolled back already, but most
+        /// implementations do not. So in all cases try rolling back
         | _ -> 
             rollbackTran tran
             reraise()
 
-// Create a new IDbCommand  
+
+/// Create a new IDbCommand  
 let newDbCommand (sql : string) (tran : IDbTransaction) =
     let cmd = tran.Connection.CreateCommand()
     cmd.CommandType <- CommandType.Text
@@ -53,7 +61,7 @@ let newDbCommand (sql : string) (tran : IDbTransaction) =
     cmd.Transaction <- tran
     cmd 
 
-// Assign DbParam to IDbCommand
+/// Assign DbParam to IDbCommand
 let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
     dbParams
     |> Seq.iter (fun param ->
@@ -62,20 +70,22 @@ let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
         p.Value <- param.Value
         cmd.Parameters.Add(p) |> ignore)
 
+/// Clear all parameters from IDbCommand
 let clearParameters (cmd : IDbCommand) =
     cmd.Parameters.Clear()
     
-// Create a new IDbCommand  
+/// Create a new IDbCommand  
 let newCommand (sql : string) (dbParams : DbParam list) (tran : IDbTransaction) =
     let cmd = newDbCommand sql tran
     assignDbParams cmd dbParams
     cmd
 
-// DbParam constructor
+/// DbParam constructor
 let newParam (name : string) (value : 'a) =
     { Name = name; Value = value }
 
-// Query for multiple results within transaction scope
+
+/// Query for multiple results within transaction scope
 let tranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
@@ -83,18 +93,86 @@ let tranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (t
     rd.Close() |> ignore
     results
 
-// Query for single result within transaction scope
+/// Query for multiple results
+let query (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
+    use tran = beginTran conn
+    let results = tranQuery sql param map tran
+    commitTran tran
+    results
+
+/// Try to query for multiple results within transaction scope
+let tryTranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
+    try
+        tranQuery sql param map tran
+        |> Ok 
+    with ex -> DbError ex
+
+/// Query for multiple results
+let tryQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =    
+    try
+        use tran = beginTran conn
+        tranQuery sql param map tran
+        |> Ok
+    with ex -> DbError ex
+
+
+/// Query for single result within transaction scope
 let tranQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
     if rd.Read() then Some(map rd) else None
 
-// Execute query with no results within transction scope
+/// Query for single result
+let querySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
+    use tran = beginTran conn
+    let result = tranQuerySingle sql param map tran
+    commitTran tran
+    result
+
+/// Try to query for single result within transaction scope
+let tryTranQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
+    try
+        tranQuerySingle sql param map tran
+        |> Ok
+    with ex -> DbError ex
+
+/// Query for single result
+let tryQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
+    try
+        use tran = beginTran conn
+        tranQuerySingle sql param map tran 
+        |> Ok
+    with ex -> DbError ex
+
+
+/// Execute query with no results within transction scope
 let tranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran    
     cmd.ExecuteNonQuery() |> ignore
 
-// Execute query with no results many times within transction scope
+/// Execute query with no results
+let exec (sql : string) (param : DbParam list) (conn : IDbConnection) =
+    use tran = beginTran conn
+    tranExec sql param tran
+    commitTran tran
+
+/// Try to execute query with no results within transction scope
+let tryTranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
+    try
+        tranExec sql param tran
+        |> Ok
+    with ex -> DbError ex
+
+/// Try to execute query with no results
+let tryExec (sql : string) (param : DbParam list) (conn : IDbConnection) =
+    try
+        use tran = beginTran conn
+        tranExec sql param tran 
+        |> Ok
+    with ex -> DbError ex
+
+
+/// Execute query with no results many times within transction scope
 let tranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
     use cmd = newDbCommand sql tran    
     for param in manyParam do
@@ -102,44 +180,57 @@ let tranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTrans
         assignDbParams cmd param
         cmd.ExecuteNonQuery() |> ignore
     commitTran tran
-
-// Execute query that returns scalar result within transcation scope
-let tranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
-    use cmd = newCommand sql param tran
-    convert (cmd.ExecuteScalar())
-
-// Query for multiple results
-let query (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
-    use tran = beginTran conn
-    let results = tranQuery sql param map tran
-    commitTran tran
-    results
-
-// Query for single result
-let querySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
-    use tran = beginTran conn
-    let result = tranQuerySingle sql param map tran
-    commitTran tran
-    result
-
-// Execute query with no results
-let exec (sql : string) (param : DbParam list) (conn : IDbConnection) =
-    use tran = beginTran conn
-    tranExec sql param tran
-    commitTran tran
-
-// Execute a query with no results many times
+    
+/// Execute a query with no results many times
 let execMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnection) =
     use tran = beginTran conn
     tranExecMany sql manyParam tran
 
-// Execute query with scalar result
+/// Try to execute query with no results many times within transction scope
+let tryTranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
+    try
+        tranExecMany sql manyParam tran
+        |> Ok
+    with ex -> DbError ex
+
+/// Try to execute a query with no results many times
+let tryExecMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnection) =
+    try
+        use tran = beginTran conn
+        tranExecMany sql manyParam tran
+        |> Ok
+    with ex -> DbError ex
+        
+
+/// Execute query that returns scalar result within transcation scope
+let tranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
+    use cmd = newCommand sql param tran
+    convert (cmd.ExecuteScalar())
+
+/// Execute query with scalar result
 let scalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : IDbConnection) =
     use tran = beginTran conn
     let v = tranScalar sql param convert tran
     commitTran tran
     v
 
+/// Try to execute query that returns scalar result within transcation scope
+let tryTranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
+    try
+        tranScalar sql param convert tran
+        |> Ok
+    with ex -> DbError ex
+
+/// Try to execute query with scalar result
+let tryScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : IDbConnection) =
+    try
+        use tran = beginTran conn
+        tranScalar sql param convert tran
+        |> Ok
+    with ex -> DbError ex
+
+
+// DataReader extensions
 type IDataReader with
     member this.GetOrdinalOption (name : string) = 
         let i = this.GetOrdinal(name)
