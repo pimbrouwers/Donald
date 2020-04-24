@@ -135,7 +135,7 @@ module IntegrationTests =
             authorsResult |> should be instanceOfType<DbResult<Author list>>
             
             match authorsResult with
-            | Ok authors -> authors.Length |> should equal 2
+            | DbResult authors -> authors.Length |> should equal 2
             | _ -> "DbResult should not be DbError" |> should equal false
 
         [<Fact>]
@@ -182,7 +182,7 @@ module IntegrationTests =
             authorResult |> should be instanceOfType<DbResult<Author option>>
             
             match authorResult with
-            | Ok author ->                
+            | DbResult author ->                
                 match author with 
                 | Some author -> 
                     author.AuthorId |> should equal 1

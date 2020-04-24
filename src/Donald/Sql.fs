@@ -9,8 +9,8 @@ type DbConnectionFactory = unit -> IDbConnection
 /// Represents the result of an action against the database
 /// or, an encapsulation of the exception thrown
 type DbResult<'a> =
-    | Ok      of 'a    
-    | DbError of Exception
+    | DbResult of 'a    
+    | DbError  of Exception
 
 /// Specifies an input parameter for an IDbCommand
 [<Struct>]
@@ -104,7 +104,7 @@ let query (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn 
 let tryTranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
     try
         tranQuery sql param map tran
-        |> Ok 
+        |> DbResult 
     with ex -> DbError ex
 
 /// Query for multiple results
@@ -112,7 +112,7 @@ let tryQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (co
     try
         use tran = beginTran conn
         tranQuery sql param map tran
-        |> Ok
+        |> DbResult
     with ex -> DbError ex
 
 
@@ -133,7 +133,7 @@ let querySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) 
 let tryTranQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
     try
         tranQuerySingle sql param map tran
-        |> Ok
+        |> DbResult
     with ex -> DbError ex
 
 /// Query for single result
@@ -141,7 +141,7 @@ let tryQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> '
     try
         use tran = beginTran conn
         tranQuerySingle sql param map tran 
-        |> Ok
+        |> DbResult
     with ex -> DbError ex
 
 
@@ -160,7 +160,7 @@ let exec (sql : string) (param : DbParam list) (conn : IDbConnection) =
 let tryTranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
     try
         tranExec sql param tran
-        |> Ok
+        |> DbResult
     with ex -> DbError ex
 
 /// Try to execute query with no results
@@ -168,7 +168,7 @@ let tryExec (sql : string) (param : DbParam list) (conn : IDbConnection) =
     try
         use tran = beginTran conn
         tranExec sql param tran 
-        |> Ok
+        |> DbResult
     with ex -> DbError ex
 
 
@@ -190,7 +190,7 @@ let execMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnectio
 let tryTranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
     try
         tranExecMany sql manyParam tran
-        |> Ok
+        |> DbResult
     with ex -> DbError ex
 
 /// Try to execute a query with no results many times
@@ -198,7 +198,7 @@ let tryExecMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnec
     try
         use tran = beginTran conn
         tranExecMany sql manyParam tran
-        |> Ok
+        |> DbResult
     with ex -> DbError ex
         
 
@@ -218,7 +218,7 @@ let scalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : I
 let tryTranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
     try
         tranScalar sql param convert tran
-        |> Ok
+        |> DbResult
     with ex -> DbError ex
 
 /// Try to execute query with scalar result
@@ -226,7 +226,7 @@ let tryScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn 
     try
         use tran = beginTran conn
         tranScalar sql param convert tran
-        |> Ok
+        |> DbResult
     with ex -> DbError ex
 
 
