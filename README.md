@@ -86,7 +86,7 @@ let getAuthor connectionFactory authorId =
         "SELECT author_id, full_name
          FROM   author
          WHERE  author_id = @author_id"
-         [ newParam "author_id" )SqlType.Int authorId) ]
+         [ newParam "author_id" (SqlType.Int authorId) ]
          Author.FromDataReader 
          conn
 ```
