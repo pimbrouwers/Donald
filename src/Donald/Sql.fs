@@ -375,7 +375,7 @@ type IDataReader with
         | None   -> None
         | Some i -> 
             use ms = new MemoryStream()            
-            let bufferSize = 1024 * 2
+            let bufferSize = 1024
             let buffer = Array.zeroCreate bufferSize
             let rec chunkValue (position: int64) (str : Stream) (rd : IDataReader) =
                 match rd.GetBytes(i, position, buffer, 0, buffer.Length) with
