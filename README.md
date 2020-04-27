@@ -15,7 +15,7 @@ This library is named after him.
 
 Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. 
 
-Providing basic functional wrappers for the `IDbCommand` methods `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and a full-suite of `IDataReader` extension methods to make retrieving values safer and more direct.
+Providing basic functional wrappers for the `IDbCommand` methods: `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and a full-suite of `IDataReader` extension methods to make retrieving values safer and more direct.
 
 > If you came looking for an ORM, this is not your light saber. And may the force be with you.
 
@@ -41,7 +41,7 @@ type Author =
         FullName : string
     }
     // Not mandatory, but helpful
-    static member FromReader (rd : IDataReader) = 
+    static member FromDataReader (rd : IDataReader) = 
         {
             // IDataReader extension method (see below)
             AuthorId = rd.GetInt32("author_id")  
@@ -64,7 +64,7 @@ let connectionFactory : DbConnectionFactory =
 ### Query for multiple strongly-typed results
 
 ```f#
-let findAuthor search =
+let findAuthors connectionFactory search =
     use conn = createConn connectionFactory
 
     query
@@ -72,14 +72,14 @@ let findAuthor search =
           FROM   author
           WHERE  full_name LIKE @search"
           [ newParam "search" search ]
-          Author.fromReader
-	  conn
+          Author.FromDataReader
+	        conn
 ```
 
 ### Query for exactly one strongly-type result
 
 ```f#
-let getAuthor authorId =
+let getAuthor connectionFactory authorId =
     use conn = createConn connectionFactory
 
     querySingle // Returns Option<Author>
@@ -87,7 +87,7 @@ let getAuthor authorId =
          FROM   author
          WHERE  author_id = @author_id"
          [ newParam "author_id" authorId ]
-         Author.fromReader 
+         Author.FromDataReader 
          conn
 ```
 
@@ -100,7 +100,7 @@ As opposed to an `IDbConnection`, these functions expect an `IDbTransaction` as 
 ### Execute a statement
 
 ```f#
-let updateAuthor author =
+let updateAuthor connectionFactory author =
     use conn = createConn connectionFactory
     use tran = beginTran conn 
 
@@ -120,7 +120,7 @@ let updateAuthor author =
 ### Execute a statement many times
 
 ```f#
-let insertAuthors =
+let insertDefaultAuthors connectionFactory =
     use conn = createConn connectionFactory
     use tran = beginTran conn 
 
@@ -139,7 +139,7 @@ let insertAuthors =
 ### Execute a statement that returns a value
 
 ```f#
-let insertAuthor fullName =
+let insertAuthor connectionFactory fullName =
     use conn = createConn connectionFactory
     use tran = beginTran conn // Base function's are transaction-oriented
     
@@ -156,6 +156,43 @@ let insertAuthor fullName =
     authorId 
 ```
 
+## Handling Database Errors/Exceptions
+
+There are times when the database engine will error. For example, when receiving an invalid SQL statement, missing input variable etc. In these cases, you'll likely be rewarded with an `Exception`. Yay!
+
+To make this actuality more explicit, forcing the consumer to handle the possibility of failure, all 10 statement functions have a "try" implementation. These encapsulate not only the result, but also the success or failure of the operation using the following type:
+
+```f#
+type DbResult<'a> =
+    | DbResult of 'a    
+    | DbError  of Exception
+```
+
+To illustrate dealing with this new type, consider these examples:
+
+```f#
+let tryFindAuthors connectionFactory search =
+  use conn = createConn connectionFactory
+
+  // "try" functions are available for all statement types
+  tryQuery
+       "SELECT author_id, full_name
+        FROM   author
+        WHERE  full_name LIKE @search"
+        [ newParam "search" search ]
+        Author.FromDataReader
+        conn
+
+// Consuming the database call elsewhere in the code
+let result = "Doe" |> (connectionFactory |> tryFindAuthors)
+match result with
+| DbError ex -> 
+    if isNull ex.InnerException then ex.Message 
+    else ex.InnerException.Message
+    |> Error
+| DbResult authors -> // Do something meaningful wuth authors ...
+```
+
 ## `IDataReader` Extension Methods
 
 To make obtaining values from reader more straight-forward, 3 sets of extension methods are available for:
@@ -163,7 +200,7 @@ To make obtaining values from reader more straight-forward, 3 sets of extension 
 2. Get value as `option<'a>`
 3. Get value as `Nullable<'a>`
 
-Assume we have an open `IDataReader` and are currently reading a row, the `IDataRecord`:
+Assume we have an active `IDataReader` called `rd` and are currently reading a row, the following extension methods are available to simplify reading values:
 
 ```f#
 rd.GetString "some_field"           // string -> string
