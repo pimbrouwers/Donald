@@ -2,7 +2,8 @@
 
 CREATE TABLE author (    
     author_id   INTEGER   NOT NULL  PRIMARY KEY  AUTOINCREMENT  
-  , full_name   TEXT      NOT NULL  UNIQUE);
+  , full_name   TEXT      NOT NULL  UNIQUE
+  , birth_date  NUMERIC   NULL);
 
 INSERT INTO author (full_name) 
 VALUES

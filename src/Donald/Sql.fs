@@ -15,22 +15,24 @@ type DbResult<'a> =
 
 /// Represents the supported data types for database IO
 type SqlType =
-    | String     of String
-    | AnsiString of String
-    | Boolean    of Boolean
-    | Byte       of Byte
-    | Char       of Char
-    | AnsiChar   of Char
-    | DateTime   of DateTime
-    | Decimal    of Decimal
-    | Double     of Double
-    | Float      of float
-    | Guid       of Guid
-    | Int16      of Int16
-    | Int32      of Int32
-    | Int        of int32
-    | Int64      of Int64
-    | Bytes      of Byte[]
+    | Null       
+    | String         of String
+    | AnsiString     of String
+    | Boolean        of Boolean
+    | Byte           of Byte
+    | Char           of Char
+    | AnsiChar       of Char
+    | Decimal        of Decimal
+    | Double         of Double
+    | Float          of float
+    | Guid           of Guid
+    | Int16          of Int16
+    | Int32          of Int32
+    | Int            of int32
+    | Int64          of Int64
+    | DateTime       of DateTime
+    | DateTimeOffset of DateTimeOffset
+    | Bytes          of Byte[]
 
 /// Specifies an input parameter for an IDbCommand
 [<Struct>]
@@ -90,6 +92,9 @@ let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
         p.Value <- param.Value
 
         match param.Value with
+        | Null -> 
+            p.Value <- DBNull.Value
+
         | String v -> 
             p.DbType <- DbType.String
             p.Value <- v
@@ -114,10 +119,6 @@ let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
             p.DbType <- DbType.String
             p.Value <- v
 
-        | DateTime v -> 
-            p.DbType <- DbType.DateTime
-            p.Value <- v
-
         | Decimal v -> 
             p.DbType <- DbType.Decimal
             p.Value <- v
@@ -126,10 +127,6 @@ let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
         | Float v ->
             p.DbType <- DbType.Double
             p.Value <- v 
-            
-        | Guid v -> 
-            p.DbType <- DbType.Guid
-            p.Value <- v
 
         | Int16 v -> 
             p.DbType <- DbType.Int16
@@ -142,6 +139,18 @@ let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
 
         | Int64 v -> 
             p.DbType <- DbType.Int64
+            p.Value <- v
+            
+        | Guid v -> 
+            p.DbType <- DbType.Guid
+            p.Value <- v
+
+        | DateTime v -> 
+            p.DbType <- DbType.DateTime
+            p.Value <- v
+
+        | DateTimeOffset v ->
+            p.DbType <- DbType.DateTimeOffset
             p.Value <- v
 
         | Bytes v -> 
@@ -317,7 +326,7 @@ let tryScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn 
 // DataReader extensions
 type IDataReader with
     member this.GetOrdinalOption (name : string) = 
-        let i = this.GetOrdinal(name)
+        let i = this.GetOrdinal(name)        
         match this.IsDBNull(i) with 
         | true  -> None
         | false -> Some(i)
@@ -325,50 +334,48 @@ type IDataReader with
     member this.GetOption (map : int -> 'a when 'a : struct) (name : string) = 
         this.GetOrdinalOption(name)
         |> Option.map map
+    
+    member this.GetStringOption (name : string)         = this.GetOrdinalOption(name) |> Option.map (fun i -> this.GetString(i))
+    member this.GetBooleanOption (name : string)        = name |> this.GetOption (fun i -> this.GetBoolean(i)) 
+    member this.GetByteOption (name : string)           = name |> this.GetOption (fun i -> this.GetByte(i))
+    member this.GetCharOption (name : string)           = name |> this.GetOption (fun i -> this.GetString(i).[0])
+    member this.GetDateTimeOption (name : string)       = name |> this.GetOption (fun i -> this.GetDateTime(i))    
+    member this.GetDateTimeOffsetOption (name : string) = this.GetStringOption name |> Option.map (fun dt -> snd(DateTimeOffset.TryParse dt))
+    member this.GetDecimalOption (name : string)        = name |> this.GetOption (fun i -> this.GetDecimal(i))
+    member this.GetDoubleOption (name : string)         = name |> this.GetOption (fun i -> this.GetDouble(i))
+    member this.GetFloatOption (name : string)          = this.GetDoubleOption name
+    member this.GetGuidOption (name : string)           = name |> this.GetOption (fun i -> this.GetGuid(i))
+    member this.GetInt16Option (name : string)          = name |> this.GetOption (fun i -> this.GetInt16(i))
+    member this.GetInt32Option (name : string)          = name |> this.GetOption (fun i -> this.GetInt32(i))
+    member this.GetInt64Option (name : string)          = name |> this.GetOption (fun i -> this.GetInt64(i))  
+    
+    member this.GetString (name : string)         = match this.GetStringOption name         with Some v -> v | None -> null
+    member this.GetBoolean (name : string)        = match this.GetBooleanOption name        with Some v -> v | None -> false
+    member this.GetByte (name : string)           = match this.GetByteOption name           with Some v -> v | None -> Byte.MinValue
+    member this.GetChar (name : string)           = match this.GetCharOption name           with Some v -> v | None -> Char.MinValue
+    member this.GetDateTime (name : string)       = match this.GetDateTimeOption name       with Some v -> v | None -> DateTime.MinValue
+    member this.GetDateTimeOffset (name : string) = match this.GetDateTimeOffsetOption name with Some v -> v | None -> DateTimeOffset.MinValue
+    member this.GetDecimal (name : string)        = match this.GetDecimalOption name        with Some v -> v | None -> 0.0M
+    member this.GetDouble (name : string)         = match this.GetDoubleOption name         with Some v -> v | None -> 0.0
+    member this.GetFloat (name : string)          = match this.GetFloatOption name          with Some v -> v | None -> 0.0
+    member this.GetGuid (name : string)           = match this.GetGuidOption name           with Some v -> v | None -> Guid.Empty
+    member this.GetInt16 (name : string)          = match this.GetInt16Option name          with Some v -> v | None -> 0s
+    member this.GetInt32 (name : string)          = match this.GetInt32Option name          with Some v -> v | None -> 0
+    member this.GetInt64 (name : string)          = match this.GetInt64Option name          with Some v -> v | None -> 0L  
+    
+    member this.GetNullableBoolean (name : string)        = match this.GetBooleanOption name with Some v -> Nullable<Boolean>(v) | None -> Nullable<Boolean>()
+    member this.GetNullableByte (name : string)           = match this.GetByteOption name with Some v -> Nullable<Byte>(v) | None -> Nullable<Byte>()
+    member this.GetNullableChar (name : string)           = match this.GetCharOption name with Some v -> Nullable<Char>(v) | None -> Nullable<Char>()
+    member this.GetNullableDateTime (name : string)       = match this.GetDateTimeOption name with Some v -> Nullable<DateTime>(v) | None -> Nullable<DateTime>()
+    member this.GetNullableDateTimeOffset (name : string) = match this.GetDateTimeOffsetOption name with Some v -> Nullable<DateTimeOffset>(v) | None -> Nullable<DateTimeOffset>()
+    member this.GetNullableDecimal (name : string)        = match this.GetDecimalOption name with Some v -> Nullable<Decimal>(v) | None -> Nullable<Decimal>()
+    member this.GetNullableDouble (name : string)         = match this.GetDoubleOption name with Some v -> Nullable<Double>(v) | None -> Nullable<Double>()
+    member this.GetNullableFloat (name : string)          = this.GetNullableDouble name
+    member this.GetNullableGuid (name : string)           = match this.GetGuidOption name with Some v -> Nullable<Guid>(v) | None -> Nullable<Guid>()
+    member this.GetNullableInt16 (name : string)          = match this.GetInt16Option name with Some v -> Nullable<Int16>(v) | None -> Nullable<Int16>()
+    member this.GetNullableInt32 (name : string)          = match this.GetInt32Option name with Some v -> Nullable<Int32>(v) | None -> Nullable<Int32>()
+    member this.GetNullableInt64 (name : string)          = match this.GetInt64Option name with Some v -> Nullable<Int64>(v) | None -> Nullable<Int64>()  
 
-    member this.GetNullable (map : int -> 'a when 'a : struct)  (name : string) =
-        name
-        |> this.GetOption map
-        |> Option.map (fun v -> Nullable<'a>(v))
-        |> Option.defaultValue (Nullable<'a>())
-    
-    member this.GetStringOption (name : string)     = this.GetOrdinalOption(name) |> Option.map (fun i -> this.GetString(i))
-    member this.GetBooleanOption (name : string)    = name |> this.GetOption (fun i -> this.GetBoolean(i)) 
-    member this.GetByteOption (name : string)       = name |> this.GetOption (fun i -> this.GetByte(i))
-    member this.GetCharOption (name : string)       = name |> this.GetOption (fun i -> this.GetChar(i))
-    member this.GetDateTimeOption (name : string)   = name |> this.GetOption (fun i -> this.GetDateTime(i))
-    member this.GetDecimalOption (name : string)    = name |> this.GetOption (fun i -> this.GetDecimal(i))
-    member this.GetDoubleOption (name : string)     = name |> this.GetOption (fun i -> this.GetDouble(i))
-    member this.GetFloatOption (name : string)      = name |> this.GetOption (fun i -> this.GetFloat(i))
-    member this.GetGuidOption (name : string)       = name |> this.GetOption (fun i -> this.GetGuid(i))
-    member this.GetInt16Option (name : string)      = name |> this.GetOption (fun i -> this.GetInt16(i))
-    member this.GetInt32Option (name : string)      = name |> this.GetOption (fun i -> this.GetInt32(i))
-    member this.GetInt64Option (name : string)      = name |> this.GetOption (fun i -> this.GetInt64(i))  
-    
-    member this.GetString (name : string)           = match this.GetStringOption name   with Some v -> v | None -> String.Empty
-    member this.GetBoolean (name : string)          = match this.GetBooleanOption name  with Some v -> v | None -> false
-    member this.GetByte (name : string)             = match this.GetByteOption name     with Some v -> v | None -> Byte.MinValue
-    member this.GetChar (name : string)             = match this.GetCharOption name     with Some v -> v | None -> Char.MinValue
-    member this.GetDateTime (name : string)         = match this.GetDateTimeOption name with Some v -> v | None -> DateTime.MinValue
-    member this.GetDecimal (name : string)          = match this.GetDecimalOption name  with Some v -> v | None -> 0.0M
-    member this.GetDouble (name : string)           = match this.GetDoubleOption name   with Some v -> v | None -> 0.0
-    member this.GetFloat (name : string)            = match this.GetFloatOption name    with Some v -> v | None -> 0.0f
-    member this.GetGuid (name : string)             = match this.GetGuidOption name     with Some v -> v | None -> Guid.Empty
-    member this.GetInt16 (name : string)            = match this.GetInt16Option name    with Some v -> v | None -> 0s
-    member this.GetInt32 (name : string)            = match this.GetInt32Option name    with Some v -> v | None -> 0
-    member this.GetInt64 (name : string)            = match this.GetInt64Option name    with Some v -> v | None -> 0L  
-    
-    member this.GetNullableBoolean (name : string)  = name |> this.GetNullable (fun i -> this.GetBoolean(i)) 
-    member this.GetNullableByte (name : string)     = name |> this.GetNullable (fun i -> this.GetByte(i))
-    member this.GetNullableChar (name : string)     = name |> this.GetNullable (fun i -> this.GetChar(i))
-    member this.GetNullableDateTime (name : string) = name |> this.GetNullable (fun i -> this.GetDateTime(i))
-    member this.GetNullableDecimal (name : string)  = name |> this.GetNullable (fun i -> this.GetDecimal(i))
-    member this.GetNullableDouble (name : string)   = name |> this.GetNullable (fun i -> this.GetDouble(i))
-    member this.GetNullableFloat (name : string)    = name |> this.GetNullable (fun i -> this.GetFloat(i))
-    member this.GetNullableGuid (name : string)     = name |> this.GetNullable (fun i -> this.GetGuid(i))
-    member this.GetNullableInt16 (name : string)    = name |> this.GetNullable (fun i -> this.GetInt16(i))
-    member this.GetNullableInt32 (name : string)    = name |> this.GetNullable (fun i -> this.GetInt32(i))
-    member this.GetNullableInt64 (name : string)    = name |> this.GetNullable (fun i -> this.GetInt64(i))  
     
     member this.GetBytesOption (name : string) : byte[] option =
         match name |> this.GetOrdinalOption with
@@ -391,3 +398,4 @@ type IDataReader with
         match this.GetBytesOption name with
         | None       -> [||]
         | Some bytes -> bytes
+        

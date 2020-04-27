@@ -73,7 +73,7 @@ let findAuthors connectionFactory search =
           WHERE  full_name LIKE @search"
           [ newParam "search" (SqlType.String search) ]
           Author.FromDataReader
-	        conn
+          conn
 ```
 
 ### Query for exactly one strongly-type result
@@ -149,7 +149,7 @@ let insertAuthor connectionFactory fullName =
              SELECT SCOPE_IDENTITY();"
              [ newParam "full_name" (SqlType.String fullName) ]
              Convert.ToInt32 // Any obj -> int function would do here
-	     tran
+       tran
 
     commitTran tran
 
@@ -208,6 +208,7 @@ rd.GetBoolean "some_field"          // string -> bool
 rd.GetByte "some_field"             // string -> byte
 rd.GetChar "some_field"             // string -> char
 rd.GetDateTime "some_field"         // string -> DateTime
+rd.GetDateTimeOffset "some_field"   // string -> DateTime
 rd.GetDecimal "some_field"          // string -> Decimal
 rd.GetDouble "some_field"           // string -> Double
 rd.GetFloat "some_field"            // string -> float32
@@ -217,31 +218,33 @@ rd.GetInt32 "some_field"            // string -> int32
 rd.GetInt64 "some_field"            // string -> int64
 rd.GetBytes "some_field"            // string -> byte[]
 
-rd.GetStringOption "some_field"     // string -> string option
-rd.GetBooleanOption "some_field"    // string -> bool option
-rd.GetByteOption "some_field"       // string -> byte option
-rd.GetCharOption "some_field"       // string -> char option
-rd.GetDateTimeOption "some_field"   // string -> DateTime option
-rd.GetDecimalOption "some_field"    // string -> Decimal option
-rd.GetDoubleOption "some_field"     // string -> Double option
-rd.GetFloatOption "some_field"      // string -> float32 option
-rd.GetGuidOption "some_field"       // string -> Guid option
-rd.GetInt16Option "some_field"      // string -> int16 option
-rd.GetInt32Option "some_field"      // string -> int32 option
-rd.GetInt64Option "some_field"      // string -> int64 option
-rd.GetBytesOption "some_field"      // string -> byte[] option
+rd.GetStringOption "some_field"         // string -> string option
+rd.GetBooleanOption "some_field"        // string -> bool option
+rd.GetByteOption "some_field"           // string -> byte option
+rd.GetCharOption "some_field"           // string -> char option
+rd.GetDateTimeOption "some_field"       // string -> DateTime option
+rd.GetDateTimeOffsetOption "some_field" // string -> DateTime option
+rd.GetDecimalOption "some_field"        // string -> Decimal option
+rd.GetDoubleOption "some_field"         // string -> Double option
+rd.GetFloatOption "some_field"          // string -> float32 option
+rd.GetGuidOption "some_field"           // string -> Guid option
+rd.GetInt16Option "some_field"          // string -> int16 option
+rd.GetInt32Option "some_field"          // string -> int32 option
+rd.GetInt64Option "some_field"          // string -> int64 option
+rd.GetBytesOption "some_field"          // string -> byte[] option
 
-rd.GetNullableBoolean "some_field"  // string -> Nullable<bool>
-rd.GetNullableByte "some_field"     // string -> Nullable<byte>
-rd.GetNullableChar "some_field"     // string -> Nullable<char>
-rd.GetNullableDateTime "some_field" // string -> Nullable<DateTime>
-rd.GetNullableDecimal "some_field"  // string -> Nullable<Decimal>
-rd.GetNullableDouble "some_field"   // string -> Nullable<Double>
-rd.GetNullableFloat "some_field"    // string -> Nullable<float32>
-rd.GetNullableGuid "some_field"     // string -> Nullable<Guid>
-rd.GetNullableInt16 "some_field"    // string -> Nullable<int16>
-rd.GetNullableInt32 "some_field"    // string -> Nullable<int32>
-rd.GetNullableInt64 "some_field"    // string -> Nullable<int64>
+rd.GetNullableBoolean "some_field"        // string -> Nullable<bool>
+rd.GetNullableByte "some_field"           // string -> Nullable<byte>
+rd.GetNullableChar "some_field"           // string -> Nullable<char>
+rd.GetNullableDateTime "some_field"       // string -> Nullable<DateTime>
+rd.GetNullableDateTimeOffset "some_field" // string -> Nullable<DateTime>
+rd.GetNullableDecimal "some_field"        // string -> Nullable<Decimal>
+rd.GetNullableDouble "some_field"         // string -> Nullable<Double>
+rd.GetNullableFloat "some_field"          // string -> Nullable<float32>
+rd.GetNullableGuid "some_field"           // string -> Nullable<Guid>
+rd.GetNullableInt16 "some_field"          // string -> Nullable<int16>
+rd.GetNullableInt32 "some_field"          // string -> Nullable<int32>
+rd.GetNullableInt64 "some_field"          // string -> Nullable<int64>
 ```
 
 ## Find a bug?

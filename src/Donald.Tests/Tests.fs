@@ -108,7 +108,70 @@ module IntegrationTests =
             |> should equal 2
 
     [<Collection("Db")>]
-    type Statements() =         
+    type Statements() = 
+        [<Fact>]
+        member __.``SELECT all sql types`` () =
+            let char : char = 'a'
+            let result = 
+                querySingle 
+                    "SELECT  @p_null AS p_null
+                           , @p_string AS p_string
+                           , @p_ansi_string AS p_ansi_string
+                           , @p_boolean AS p_boolean
+                           , @p_byte AS p_byte
+                           , @p_char AS p_char
+                           , @p_ansi_char AS p_ansi_char
+                           , @p_decimal AS p_decimal
+                           , @p_double AS p_double
+                           , @p_float AS p_float
+                           , @p_guid AS p_guid
+                           , @p_int16 AS p_int16
+                           , @p_int32 AS p_int32
+                           , @p_int64 AS p_int64
+                           , @p_date_time AS p_date_time
+                           , @p_date_time_offset AS p_date_time_offset"
+                    [
+                        newParam "p_null" (SqlType.Null)
+                        newParam "p_string" (SqlType.String "p_string")
+                        newParam "p_ansi_string" (SqlType.AnsiString "p_ansi_string")
+                        newParam "p_boolean" (SqlType.Boolean false)
+                        newParam "p_byte" (SqlType.Byte Byte.MinValue)
+                        newParam "p_char" (SqlType.Char 'a')
+                        newParam "p_ansi_char" (SqlType.AnsiChar Char.MinValue)
+                        newParam "p_decimal" (SqlType.Decimal 0.0M)
+                        newParam "p_double" (SqlType.Double 0.0)
+                        newParam "p_float" (SqlType.Float 0.0)
+                        newParam "p_guid" (SqlType.Guid (Guid.NewGuid()))
+                        newParam "p_int16" (SqlType.Int16 0s)
+                        newParam "p_int32" (SqlType.Int32 0)
+                        newParam "p_int64" (SqlType.Int64 0L)
+                        newParam "p_date_time" (SqlType.DateTime DateTime.Now)
+                        newParam "p_date_time_offset" (SqlType.DateTimeOffset DateTimeOffset.Now)
+                    ]
+                    (fun rd -> 
+                        {|
+                           p_null = rd.GetString("p_null")
+                           p_string = rd.GetString("p_string")
+                           p_ansi_string = rd.GetString("p_ansi_string")
+                           p_boolean = rd.GetBoolean("p_boolean")
+                           p_byte = rd.GetByte("p_byte")
+                           p_char = rd.GetChar("p_char")
+                           p_ansi_char = rd.GetChar("p_ansi_char")
+                           p_decimal = rd.GetDecimal("p_decimal")
+                           p_double = rd.GetDouble("p_double")
+                           p_float = rd.GetFloat("p_float")
+                           p_guid = rd.GetGuid("p_guid")
+                           p_int16 = rd.GetInt16("p_int16")
+                           p_int32 = rd.GetInt32("p_int32")
+                           p_int64 = rd.GetInt64("p_int64")
+                           p_date_time = rd.GetDateTime("p_date_time")
+                           p_date_time_offset = rd.GetDateTimeOffset("p_date_time_offset") 
+                        |})
+                    conn
+            
+            result.IsSome         |> should equal true
+
+                           
         [<Fact>]
         member __.``SELECT records`` () =            
             let authors =
@@ -168,6 +231,19 @@ module IntegrationTests =
             
             author.IsSome         |> should equal true
             author.Value.AuthorId |> should equal 1
+
+        [<Fact>]
+        member __.``SELECT NULL`` () =            
+            let nullableAuthor =
+                querySingle 
+                    "SELECT NULL AS full_name, NULL AS age"
+                    []
+                    (fun rd -> {| FullName = rd.GetString("full_name"); Age = rd.GetNullableInt32("age") |})
+                    conn
+            
+            nullableAuthor.IsSome         |> should equal true
+            nullableAuthor.Value.FullName |> should equal null
+            nullableAuthor.Value.Age      |> should equal null
 
         [<Fact>]
         member __.``try SELECT single record`` () =            
@@ -234,6 +310,24 @@ module IntegrationTests =
                 author.FullName |> should equal fullName
             | None -> 
                 ()
+
+        [<Fact>]
+        member __.``INSERT author with NULL birth_date`` () =
+            let fullName = "Jim Doe"
+            let birthDate : DateTime option = None
+
+            let result = 
+                 tryExec
+                    "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
+                    [ 
+                        newParam "full_name" (SqlType.String fullName) 
+                        newParam "birth_date" (match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null) 
+                    ]
+                    conn 
+
+            match result with 
+            | DbResult _ -> ()
+            | DbError ex -> ex.Message |> should equal false
 
         [<Fact>]
         member __.``INSERT author should fail and create DbError`` () =
