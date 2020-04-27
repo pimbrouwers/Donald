@@ -45,10 +45,11 @@ module UnitTests =
     module Param =
             [<Fact>]
             let ``Should create valid DbParam`` () =
-                let p = newParam "test" 1
+                let v = (SqlType.Int 1)
+                let p = newParam "test" v
                 p.Name  |> should equal "test"
-                p.Value |> should equal 1
-
+                p.Value |> should equal v
+                
 module IntegrationTests =
     
     [<Collection("Db")>]
@@ -96,7 +97,7 @@ module IntegrationTests =
         [<Fact>]
         member __.``Should create command with params`` () =            
             use tran = beginTran conn
-            let c = newCommand "SELECT @n" [ newParam "n" 2 ] tran
+            let c = newCommand "SELECT @n" [ newParam "n" (SqlType.Int 2) ] tran
 
             c.Connection.ConnectionString |> should equal connectionString
             c.CommandText                 |> should equal "SELECT @n"
@@ -213,7 +214,7 @@ module IntegrationTests =
                  scalar
                     "INSERT INTO author (full_name) VALUES (@full_name);
                      SELECT LAST_INSERT_ROWID();"
-                    [ newParam "full_name" fullName]
+                    [ newParam "full_name" (SqlType.String fullName)]
                     Convert.ToInt32
                     conn 
 
@@ -222,7 +223,7 @@ module IntegrationTests =
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id = @author_id"
-                     [ newParam "author_id" authorId ]
+                     [ newParam "author_id" (SqlType.Int authorId) ]
                      Author.fromReader       
                      conn
 
@@ -237,16 +238,15 @@ module IntegrationTests =
         [<Fact>]
         member __.``INSERT author should fail and create DbError`` () =
             let fullName = "Jane Doe"
-            let authorIdResult = 
-                 tryScalar
+            let authorInsertResult = 
+                 tryExec
                     "INSERT INTO fake_author (full_name) VALUES (@full_nameaaaa);"
-                    [ newParam "full_name" fullName]
-                    Convert.ToInt32
+                    [ newParam "full_name" (SqlType.String fullName)]                    
                     conn 
 
-            authorIdResult |> should be instanceOfType<DbResult<int>>
+            authorInsertResult |> should be instanceOfType<DbResult<unit>>
             
-            match authorIdResult with
+            match authorInsertResult with
             | DbError ex -> ex |> should be instanceOfType<Exception>
             | _ -> "DbResult should not be Ok" |> should equal false
 
@@ -256,8 +256,8 @@ module IntegrationTests =
            
             let authorParams = 
                 [
-                    [ newParam "full_name" "Bugs Bunny" ]
-                    [ newParam "full_name" "Donald Duck" ]
+                    [ newParam "full_name" (SqlType.String "Bugs Bunny") ]
+                    [ newParam "full_name" (SqlType.String "Donald Duck") ]
                 ]                
             execMany
                 "INSERT INTO author (full_name) VALUES (@full_name);"                
@@ -272,8 +272,8 @@ module IntegrationTests =
         member __.``INSERT MANY should fail and create DbError`` () =
             let authorParams = 
                 [
-                    [ newParam "full_name" "Bugs Bunny" ]
-                    [ newParam "full_name" "Donald Duck" ]
+                    [ newParam "full_name" (SqlType.String "Bugs Bunny") ]
+                    [ newParam "full_name" (SqlType.String "Donald Duck") ]
                 ]   
                 
             let authorsResult =
@@ -295,8 +295,8 @@ module IntegrationTests =
             exec
                 "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
                 [ 
-                    newParam "author_id" authorId
-                    newParam "full_name" fullName 
+                    newParam "author_id" (SqlType.Int authorId)
+                    newParam "full_name" (SqlType.String fullName)
                 ]
                 conn
                 
@@ -305,7 +305,7 @@ module IntegrationTests =
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id = @author_id"
-                     [ newParam "author_id" authorId ]
+                     [ newParam "author_id" (SqlType.Int authorId) ]
                      Author.fromReader            
                      conn 
 
@@ -325,8 +325,8 @@ module IntegrationTests =
                 tryExec
                     "UPDATE fake_author SET full_name = @full_name WHERE aauthor_id = @author_idda"
                     [ 
-                        newParam "author_id" authorId
-                        newParam "full_name" fullName 
+                        newParam "author_id" (SqlType.Int authorId)
+                        newParam "full_name" (SqlType.String fullName)
                     ]
                     conn
 
@@ -335,3 +335,28 @@ module IntegrationTests =
             match authorResult with
             | DbError ex -> ex |> should be instanceOfType<Exception>
             | _ -> "DbResult should not be Ok" |> should equal false
+
+        [<Fact>]
+        member __.``INSERT+SELECT binary should work`` () =
+            let testString = "A sample of bytes"
+            let bytes = Text.Encoding.UTF8.GetBytes(testString)
+            let fileId = 
+                scalar
+                    "INSERT INTO file (data) VALUES (@data); SELECT LAST_INSERT_ROWID();" 
+                    [ newParam "data" (SqlType.Bytes bytes) ]
+                    Convert.ToInt32
+                    conn
+
+            let retrievedBytes =
+                querySingle
+                    "SELECT data FROM file WHERE file_id = @file_id"
+                    [ newParam "file_id" (SqlType.Int fileId) ]
+                    (fun rd -> rd.GetBytes("data"))
+                    conn
+
+            match retrievedBytes with
+            | Some b -> 
+                let str = Text.Encoding.UTF8.GetString(b)
+                b |> should equal bytes
+                str |> should equal testString
+            | None   -> true |> should equal "Invalid bytes returned"            

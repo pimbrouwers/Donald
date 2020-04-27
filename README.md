@@ -71,7 +71,7 @@ let findAuthors connectionFactory search =
          "SELECT author_id, full_name
           FROM   author
           WHERE  full_name LIKE @search"
-          [ newParam "search" search ]
+          [ newParam "search" (SqlType.String search) ]
           Author.FromDataReader
 	        conn
 ```
@@ -86,7 +86,7 @@ let getAuthor connectionFactory authorId =
         "SELECT author_id, full_name
          FROM   author
          WHERE  author_id = @author_id"
-         [ newParam "author_id" authorId ]
+         [ newParam "author_id" )SqlType.Int authorId) ]
          Author.FromDataReader 
          conn
 ```
@@ -109,8 +109,8 @@ let updateAuthor connectionFactory author =
          SET    full_name = @full_name 
          WHERE  author_id = @author_id"
          [ 
-             newParam "author_id" author.AuthorId
-             newParam "full_name" author.FullName
+             newParam "author_id" (SqlType.Int author.AuthorId)
+             newParam "full_name" (SqlType.String author.FullName)
          ]
          tran
 
@@ -127,8 +127,8 @@ let insertDefaultAuthors connectionFactory =
     tranExecMany
         "INSERT INTO author (full_name) VALUES (@full_name);"                
         [
-            [ newParam "full_name" "Bugs Bunny" ]
-            [ newParam "full_name" "Donald Duck" ]
+            [ newParam "full_name" (SqlType.String "Bugs Bunny") ]
+            [ newParam "full_name" (SqlType.String "Donald Duck") ]
         ]                        
         tran    
   
@@ -147,7 +147,7 @@ let insertAuthor connectionFactory fullName =
         tranScalar // ExecuteScalar() within scope of transaction
             "INSERT INTO author (full_name) VALUES (@full_name);
              SELECT SCOPE_IDENTITY();"
-             [ newParam "full_name" fullName]
+             [ newParam "full_name" (SqlType.String fullName) ]
              Convert.ToInt32 // Any obj -> int function would do here
 	     tran
 
@@ -179,7 +179,7 @@ let tryFindAuthors connectionFactory search =
        "SELECT author_id, full_name
         FROM   author
         WHERE  full_name LIKE @search"
-        [ newParam "search" search ]
+        [ newParam "search" (SqlType.String search) ]
         Author.FromDataReader
         conn
 
@@ -215,6 +215,7 @@ rd.GetGuid "some_field"             // string -> Guid
 rd.GetInt16 "some_field"            // string -> int16
 rd.GetInt32 "some_field"            // string -> int32
 rd.GetInt64 "some_field"            // string -> int64
+rd.GetBytes "some_field"            // string -> byte[]
 
 rd.GetStringOption "some_field"     // string -> string option
 rd.GetBooleanOption "some_field"    // string -> bool option
@@ -228,6 +229,7 @@ rd.GetGuidOption "some_field"       // string -> Guid option
 rd.GetInt16Option "some_field"      // string -> int16 option
 rd.GetInt32Option "some_field"      // string -> int32 option
 rd.GetInt64Option "some_field"      // string -> int64 option
+rd.GetBytesOption "some_field"      // string -> byte[] option
 
 rd.GetNullableBoolean "some_field"  // string -> Nullable<bool>
 rd.GetNullableByte "some_field"     // string -> Nullable<byte>

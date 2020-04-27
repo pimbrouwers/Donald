@@ -2,6 +2,7 @@
 
 open System
 open System.Data
+open System.IO
 
 /// Represents the ability to create a new IDbConnection
 type DbConnectionFactory = unit -> IDbConnection
@@ -12,12 +13,31 @@ type DbResult<'a> =
     | DbResult of 'a    
     | DbError  of Exception
 
+/// Represents the supported data types for database IO
+type SqlType =
+    | String     of String
+    | AnsiString of String
+    | Boolean    of Boolean
+    | Byte       of Byte
+    | Char       of Char
+    | AnsiChar   of Char
+    | DateTime   of DateTime
+    | Decimal    of Decimal
+    | Double     of Double
+    | Float      of float
+    | Guid       of Guid
+    | Int16      of Int16
+    | Int32      of Int32
+    | Int        of int32
+    | Int64      of Int64
+    | Bytes      of Byte[]
+
 /// Specifies an input parameter for an IDbCommand
 [<Struct>]
 type DbParam = 
     { 
-        Name : string
-        Value : obj 
+        Name : String
+        Value : SqlType
     }
 
 
@@ -65,9 +85,69 @@ let newDbCommand (sql : string) (tran : IDbTransaction) =
 let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
     dbParams
     |> Seq.iter (fun param ->
-        let p = cmd.CreateParameter()
+        let p = cmd.CreateParameter()        
         p.ParameterName <- param.Name
         p.Value <- param.Value
+
+        match param.Value with
+        | String v -> 
+            p.DbType <- DbType.String
+            p.Value <- v
+
+        | AnsiString v ->
+            p.DbType <- DbType.AnsiString
+            p.Value <- v
+
+        | Boolean v -> 
+            p.DbType <- DbType.Boolean
+            p.Value <- v
+
+        | Byte v -> 
+            p.DbType <- DbType.Byte
+            p.Value <- v
+
+        | Char v -> 
+            p.DbType <- DbType.AnsiString
+            p.Value <- v
+
+        | AnsiChar v ->
+            p.DbType <- DbType.String
+            p.Value <- v
+
+        | DateTime v -> 
+            p.DbType <- DbType.DateTime
+            p.Value <- v
+
+        | Decimal v -> 
+            p.DbType <- DbType.Decimal
+            p.Value <- v
+
+        | Double v
+        | Float v ->
+            p.DbType <- DbType.Double
+            p.Value <- v 
+            
+        | Guid v -> 
+            p.DbType <- DbType.Guid
+            p.Value <- v
+
+        | Int16 v -> 
+            p.DbType <- DbType.Int16
+            p.Value <- v
+
+        | Int32 v 
+        | Int v -> 
+            p.DbType <- DbType.Int32
+            p.Value <- v
+
+        | Int64 v -> 
+            p.DbType <- DbType.Int64
+            p.Value <- v
+
+        | Bytes v -> 
+            p.DbType <- DbType.Binary
+            p.Value <- v
+
         cmd.Parameters.Add(p) |> ignore)
 
 /// Clear all parameters from IDbCommand
@@ -81,9 +161,8 @@ let newCommand (sql : string) (dbParams : DbParam list) (tran : IDbTransaction) 
     cmd
 
 /// DbParam constructor
-let newParam (name : string) (value : 'a) =
+let newParam (name : string) (value : SqlType) =
     { Name = name; Value = value }
-
 
 /// Query for multiple results within transaction scope
 let tranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
@@ -252,24 +331,6 @@ type IDataReader with
         |> this.GetOption map
         |> Option.map (fun v -> Nullable<'a>(v))
         |> Option.defaultValue (Nullable<'a>())
-
-    member this.Get (map : int -> 'a when 'a : struct) (name : string) = 
-        name 
-        |> this.GetOption map
-        |> Option.defaultValue Unchecked.defaultof<'a>
-
-    member this.GetString (name : string)           = this.GetOrdinalOption(name) |> Option.map (fun i -> this.GetString(i)) |> Option.defaultValue String.Empty
-    member this.GetBoolean (name : string)          = name |> this.Get (fun i -> this.GetBoolean(i)) 
-    member this.GetByte (name : string)             = name |> this.Get (fun i -> this.GetByte(i))
-    member this.GetChar (name : string)             = name |> this.Get (fun i -> this.GetChar(i))
-    member this.GetDateTime (name : string)         = name |> this.Get (fun i -> this.GetDateTime(i))
-    member this.GetDecimal (name : string)          = name |> this.Get (fun i -> this.GetDecimal(i))
-    member this.GetDouble (name : string)           = name |> this.Get (fun i -> this.GetDouble(i))
-    member this.GetFloat (name : string)            = name |> this.Get (fun i -> this.GetFloat(i))
-    member this.GetGuid (name : string)             = name |> this.Get (fun i -> this.GetGuid(i))
-    member this.GetInt16 (name : string)            = name |> this.Get (fun i -> this.GetInt16(i))
-    member this.GetInt32 (name : string)            = name |> this.Get (fun i -> this.GetInt32(i))
-    member this.GetInt64 (name : string)            = name |> this.Get (fun i -> this.GetInt64(i))    
     
     member this.GetStringOption (name : string)     = this.GetOrdinalOption(name) |> Option.map (fun i -> this.GetString(i))
     member this.GetBooleanOption (name : string)    = name |> this.GetOption (fun i -> this.GetBoolean(i)) 
@@ -283,7 +344,20 @@ type IDataReader with
     member this.GetInt16Option (name : string)      = name |> this.GetOption (fun i -> this.GetInt16(i))
     member this.GetInt32Option (name : string)      = name |> this.GetOption (fun i -> this.GetInt32(i))
     member this.GetInt64Option (name : string)      = name |> this.GetOption (fun i -> this.GetInt64(i))  
-  
+    
+    member this.GetString (name : string)           = match this.GetStringOption name   with Some v -> v | None -> String.Empty
+    member this.GetBoolean (name : string)          = match this.GetBooleanOption name  with Some v -> v | None -> false
+    member this.GetByte (name : string)             = match this.GetByteOption name     with Some v -> v | None -> Byte.MinValue
+    member this.GetChar (name : string)             = match this.GetCharOption name     with Some v -> v | None -> Char.MinValue
+    member this.GetDateTime (name : string)         = match this.GetDateTimeOption name with Some v -> v | None -> DateTime.MinValue
+    member this.GetDecimal (name : string)          = match this.GetDecimalOption name  with Some v -> v | None -> 0.0M
+    member this.GetDouble (name : string)           = match this.GetDoubleOption name   with Some v -> v | None -> 0.0
+    member this.GetFloat (name : string)            = match this.GetFloatOption name    with Some v -> v | None -> 0.0f
+    member this.GetGuid (name : string)             = match this.GetGuidOption name     with Some v -> v | None -> Guid.Empty
+    member this.GetInt16 (name : string)            = match this.GetInt16Option name    with Some v -> v | None -> 0s
+    member this.GetInt32 (name : string)            = match this.GetInt32Option name    with Some v -> v | None -> 0
+    member this.GetInt64 (name : string)            = match this.GetInt64Option name    with Some v -> v | None -> 0L  
+    
     member this.GetNullableBoolean (name : string)  = name |> this.GetNullable (fun i -> this.GetBoolean(i)) 
     member this.GetNullableByte (name : string)     = name |> this.GetNullable (fun i -> this.GetByte(i))
     member this.GetNullableChar (name : string)     = name |> this.GetNullable (fun i -> this.GetChar(i))
@@ -295,4 +369,25 @@ type IDataReader with
     member this.GetNullableInt16 (name : string)    = name |> this.GetNullable (fun i -> this.GetInt16(i))
     member this.GetNullableInt32 (name : string)    = name |> this.GetNullable (fun i -> this.GetInt32(i))
     member this.GetNullableInt64 (name : string)    = name |> this.GetNullable (fun i -> this.GetInt64(i))  
-  
+    
+    member this.GetBytesOption (name : string) : byte[] option =
+        match name |> this.GetOrdinalOption with
+        | None   -> None
+        | Some i -> 
+            use ms = new MemoryStream()            
+            let bufferSize = 1024 * 2
+            let buffer = Array.zeroCreate bufferSize
+            let rec chunkValue (position: int64) (str : Stream) (rd : IDataReader) =
+                match rd.GetBytes(i, position, buffer, 0, buffer.Length) with
+                | 0L   -> ()
+                | read ->    
+                    ms.Write(buffer, 0, int read)
+                    chunkValue (position + read) str rd
+
+            chunkValue 0L ms this |> ignore               
+            Some (ms.ToArray())
+
+    member this.GetBytes (name : string) : byte[] =
+        match this.GetBytesOption name with
+        | None       -> [||]
+        | Some bytes -> bytes
