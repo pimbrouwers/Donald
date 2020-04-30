@@ -13,9 +13,9 @@ This library is named after him.
 
 ## Getting Started
 
-Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. 
+Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. It is an entirely generic abstraction, and will work with all of the major ADO implementations.
 
-Providing basic functional wrappers for the `IDbCommand` methods: `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and a full-suite of `IDataReader` extension methods to make retrieving values safer and more direct.
+Functional wrappers are available for all the `IDbCommand` methods: `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and a full-suite of `IDataReader` extension methods to make retrieving values safer and more direct.
 
 > If you came looking for an ORM, this is not your light saber. And may the force be with you.
 
@@ -31,6 +31,8 @@ dotnet add package Donald
 ```
 
 ## An example using SQL Server
+
+> Reminder: Donald will work with __any__ ADO implementation (SQL Server, SQLite, MySQL, Postgresql etc.).
 
 Consider the following model:
 
