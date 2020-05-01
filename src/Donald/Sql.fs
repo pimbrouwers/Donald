@@ -2,6 +2,7 @@
 
 open System
 open System.Data
+open System.Data.Common
 open System.IO
 
 /// Represents the ability to create a new IDbConnection
@@ -76,7 +77,7 @@ let commitTran (tran : IDbTransaction) =
 
 
 /// Create a new IDbCommand  
-let newDbCommand (sql : string) (tran : IDbTransaction) =
+let newIDbCommand (sql : string) (tran : IDbTransaction) =
     let cmd = tran.Connection.CreateCommand()
     cmd.CommandType <- CommandType.Text
     cmd.CommandText <- sql
@@ -165,13 +166,14 @@ let clearParameters (cmd : IDbCommand) =
     
 /// Create a new IDbCommand  
 let newCommand (sql : string) (dbParams : DbParam list) (tran : IDbTransaction) =
-    let cmd = newDbCommand sql tran
+    let cmd = newIDbCommand sql tran
     assignDbParams cmd dbParams
     cmd
 
 /// DbParam constructor
 let newParam (name : string) (value : SqlType) =
     { Name = name; Value = value }
+
 
 /// Query for multiple results within transaction scope
 let tranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
@@ -181,12 +183,43 @@ let tranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (t
     rd.Close() |> ignore
     results
 
+/// Query async for multiple results within transaction scope
+let tranQueryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
+    async {
+        use cmd = newCommand sql param tran :?> DbCommand
+        use! rd = cmd.ExecuteReaderAsync() |> Async.AwaitTask        
+
+        let rec loopAsync (acc : 'a list) (rd : DbDataReader) =
+            async {
+                let! canRead = rd.ReadAsync() |> Async.AwaitTask
+                match canRead with
+                | false -> return acc
+                | true  -> 
+                    let result = map rd
+                    let results = result :: acc
+                    return! loopAsync results rd
+            }
+
+        let! results = loopAsync [] rd
+        rd.Close() |> ignore
+        return results
+    }
+
 /// Query for multiple results
 let query (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
     use tran = beginTran conn
     let results = tranQuery sql param map tran
     commitTran tran
     results
+    
+/// Query async for multiple results
+let queryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
+    async {
+        use tran = beginTran conn
+        let! results = tranQueryAsync sql param map tran
+        commitTran tran
+        return results
+    }
 
 /// Try to query for multiple results within transaction scope
 let tryTranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
@@ -195,8 +228,17 @@ let tryTranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a)
         |> DbResult 
     with ex -> DbError ex
 
+/// Try to query for multiple results within transaction scope
+let tryTranQueryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
+    async {
+        try
+            let! result = tranQueryAsync sql param map tran
+            return DbResult result
+        with ex -> return DbError ex
+    }
+
 /// Query for multiple results
-let tryQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =    
+let tryQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =   
     try
         use tran = beginTran conn
         let results = tranQuery sql param map tran
@@ -204,12 +246,32 @@ let tryQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (co
         DbResult results
     with ex -> DbError ex
 
+/// Query async for multiple results
+let tryQueryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =   
+    async {
+        try
+            use tran = beginTran conn
+            let! results = tranQueryAsync sql param map tran
+            commitTran tran
+            return DbResult results
+        with ex -> return DbError ex
+    }
+    
 
 /// Query for single result within transaction scope
 let tranQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
     if rd.Read() then Some(map rd) else None
+
+/// Query async for single result within transaction scope
+let tranQuerySingleAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
+    async {
+        use cmd = newCommand sql param tran :?> DbCommand
+        use! rd = cmd.ExecuteReaderAsync() |> Async.AwaitTask
+        let! canRead = rd.ReadAsync() |> Async.AwaitTask
+        return if canRead then Some(map rd) else None
+    }
 
 /// Query for single result
 let querySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
@@ -218,12 +280,30 @@ let querySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) 
     commitTran tran
     result
 
+/// Query for single result
+let querySingleAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
+    async {
+        use tran = beginTran conn
+        let! result = tranQuerySingleAsync sql param map tran
+        commitTran tran
+        return result
+    }
+
 /// Try to query for single result within transaction scope
 let tryTranQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
     try
         tranQuerySingle sql param map tran
         |> DbResult
     with ex -> DbError ex
+
+/// Try to query async for single result within transaction scope
+let tryTranQuerySingleAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
+    async {
+        try
+            let! result = tranQuerySingleAsync sql param map tran
+            return DbResult result
+        with ex -> return DbError ex
+    }
 
 /// Query for single result
 let tryQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
@@ -234,11 +314,30 @@ let tryQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> '
         DbResult result
     with ex -> DbError ex
 
+/// Query for single result
+let tryQuerySingleAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
+    async {
+        try
+            use tran = beginTran conn
+            let! result = tranQuerySingleAsync sql param map tran 
+            commitTran tran
+            return DbResult result
+        with ex -> return DbError ex
+    }
+
 
 /// Execute query with no results within transction scope
 let tranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran    
     cmd.ExecuteNonQuery() |> ignore
+
+/// Execute async query with no results within transction scope
+let tranExecAsync (sql : string) (param : DbParam list) (tran : IDbTransaction) =
+    async {
+        use cmd = newCommand sql param tran :?> DbCommand   
+        let! _ = cmd.ExecuteNonQueryAsync() |> Async.AwaitTask
+        return ()
+    }
 
 /// Execute query with no results
 let exec (sql : string) (param : DbParam list) (conn : IDbConnection) =
@@ -246,12 +345,30 @@ let exec (sql : string) (param : DbParam list) (conn : IDbConnection) =
     tranExec sql param tran
     commitTran tran
 
+/// Execute async query with no results
+let execAsync (sql : string) (param : DbParam list) (conn : IDbConnection) =
+    async {
+        use tran = beginTran conn
+        use cmd = newCommand sql param tran :?> DbCommand
+        let! _ = cmd.ExecuteNonQueryAsync() |> Async.AwaitTask
+        commitTran tran
+    }
+
 /// Try to execute query with no results within transction scope
 let tryTranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
     try
         tranExec sql param tran
         |> DbResult
     with ex -> DbError ex
+
+/// Try to execute async query with no results within transction scope
+let tryTranExecAsync (sql : string) (param : DbParam list) (tran : IDbTransaction) =
+    async {
+        try
+            do! tranExecAsync sql param tran 
+            return DbResult ()
+        with ex -> return DbError ex
+    }
 
 /// Try to execute query with no results
 let tryExec (sql : string) (param : DbParam list) (conn : IDbConnection) =
@@ -262,20 +379,49 @@ let tryExec (sql : string) (param : DbParam list) (conn : IDbConnection) =
         DbResult ()
     with ex -> DbError ex
 
+/// Try to execute query with no results
+let tryExecAsync (sql : string) (param : DbParam list) (conn : IDbConnection) =
+    async {
+        try
+            use tran = beginTran conn
+            do! tranExecAsync sql param tran 
+            commitTran tran
+            return DbResult ()
+        with ex -> return DbError ex
+    }
+
 
 /// Execute query with no results many times within transction scope
 let tranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
-    use cmd = newDbCommand sql tran    
+    use cmd = newIDbCommand sql tran    
     for param in manyParam do
         clearParameters cmd
         assignDbParams cmd param
         cmd.ExecuteNonQuery() |> ignore
+
+/// Execute query async with no results many times within transction scope
+let tranExecManyAsync (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
+    async {
+        use cmd = newIDbCommand sql tran :?> DbCommand
+        for param in manyParam do
+            clearParameters cmd
+            assignDbParams cmd param
+            cmd.ExecuteNonQueryAsync() |> Async.AwaitTask |> ignore
+    }
         
 /// Execute a query with no results many times
 let execMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnection) =
     use tran = beginTran conn
     tranExecMany sql manyParam tran
     commitTran tran
+
+/// Execute a query async with no results many times
+let execManyAsync (sql : string) (manyParam : DbParam list list) (conn : IDbConnection) =
+    async {
+        use tran = beginTran conn
+        do! tranExecManyAsync sql manyParam tran
+        commitTran tran
+    }
 
 /// Try to execute query with no results many times within transction scope
 let tryTranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
@@ -284,6 +430,15 @@ let tryTranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTr
         |> DbResult
     with ex -> DbError ex
 
+/// Try to execute query async with no results many times within transction scope
+let tryTranExecManyAsync (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
+    async { 
+        try
+            do! tranExecManyAsync sql manyParam tran
+            return DbResult ()
+        with ex -> return DbError ex
+    }
+    
 /// Try to execute a query with no results many times
 let tryExecMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnection) =
     try
@@ -292,12 +447,31 @@ let tryExecMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnec
         commitTran tran
         DbResult ()
     with ex -> DbError ex
-        
+
+/// Try to execute a query async with no results many times
+let tryExecManyAsync (sql : string) (manyParam : DbParam list list) (conn : IDbConnection) =
+    async {
+        try
+            use tran = beginTran conn
+            do! tranExecManyAsync sql manyParam tran
+            commitTran tran
+            return DbResult ()
+        with ex -> return DbError ex
+    }
+
 
 /// Execute query that returns scalar result within transcation scope
 let tranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran
     convert (cmd.ExecuteScalar())
+
+/// Execute query async that returns scalar result within transcation scope
+let tranScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
+    async {
+        use cmd = newCommand sql param tran :?> DbCommand
+        let! result = cmd.ExecuteScalarAsync() |> Async.AwaitTask
+        return convert (result)
+    }
 
 /// Execute query with scalar result
 let scalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : IDbConnection) =
@@ -306,12 +480,30 @@ let scalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : I
     commitTran tran
     v
 
+/// Execute query async with scalar result
+let scalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : IDbConnection) =
+    async {
+        use tran = beginTran conn
+        let! v = tranScalarAsync sql param convert tran
+        commitTran tran
+        return v
+    }
+
 /// Try to execute query that returns scalar result within transcation scope
 let tryTranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
     try
         tranScalar sql param convert tran
         |> DbResult
     with ex -> DbError ex
+
+/// Try to execute query async that returns scalar result within transcation scope
+let tryTranScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
+    async {
+        try
+            let! result = tranScalarAsync sql param convert tran
+            return DbResult result
+        with ex -> return DbError ex
+    }
 
 /// Try to execute query with scalar result
 let tryScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : IDbConnection) =
@@ -321,6 +513,17 @@ let tryScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn 
         commitTran tran
         DbResult result
     with ex -> DbError ex
+
+/// Try to execute query async with scalar result
+let tryScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : IDbConnection) =
+    async {
+        try
+            use tran = beginTran conn
+            let! result = tranScalarAsync sql param convert tran
+            commitTran tran
+            return DbResult result
+        with ex -> return DbError ex
+    }
 
 
 // DataReader extensions
@@ -335,33 +538,33 @@ type IDataReader with
         this.GetOrdinalOption(name)
         |> Option.map map
     
-    member this.GetStringOption (name : string)         = this.GetOrdinalOption(name) |> Option.map (fun i -> this.GetString(i))
-    member this.GetBooleanOption (name : string)        = name |> this.GetOption (fun i -> this.GetBoolean(i)) 
-    member this.GetByteOption (name : string)           = name |> this.GetOption (fun i -> this.GetByte(i))
-    member this.GetCharOption (name : string)           = name |> this.GetOption (fun i -> this.GetString(i).[0])
-    member this.GetDateTimeOption (name : string)       = name |> this.GetOption (fun i -> this.GetDateTime(i))    
-    member this.GetDateTimeOffsetOption (name : string) = this.GetStringOption name |> Option.map (fun dt -> snd(DateTimeOffset.TryParse dt))
-    member this.GetDecimalOption (name : string)        = name |> this.GetOption (fun i -> this.GetDecimal(i))
-    member this.GetDoubleOption (name : string)         = name |> this.GetOption (fun i -> this.GetDouble(i))
-    member this.GetFloatOption (name : string)          = this.GetDoubleOption name
-    member this.GetGuidOption (name : string)           = name |> this.GetOption (fun i -> this.GetGuid(i))
-    member this.GetInt16Option (name : string)          = name |> this.GetOption (fun i -> this.GetInt16(i))
-    member this.GetInt32Option (name : string)          = name |> this.GetOption (fun i -> this.GetInt32(i))
-    member this.GetInt64Option (name : string)          = name |> this.GetOption (fun i -> this.GetInt64(i))  
+    member this.GetStringOption (name : string)           = name |> this.GetOrdinalOption |> Option.map (fun i -> this.GetString(i))
+    member this.GetBooleanOption (name : string)          = name |> this.GetOption (fun i -> this.GetBoolean(i)) 
+    member this.GetByteOption (name : string)             = name |> this.GetOption (fun i -> this.GetByte(i))
+    member this.GetCharOption (name : string)             = name |> this.GetOption (fun i -> this.GetString(i).[0])
+    member this.GetDateTimeOption (name : string)         = name |> this.GetOption (fun i -> this.GetDateTime(i))    
+    member this.GetDateTimeOffsetOption (name : string)   = this.GetStringOption name |> Option.map (fun dt -> snd(DateTimeOffset.TryParse dt))
+    member this.GetDecimalOption (name : string)          = name |> this.GetOption (fun i -> this.GetDecimal(i))
+    member this.GetDoubleOption (name : string)           = name |> this.GetOption (fun i -> this.GetDouble(i))
+    member this.GetFloatOption (name : string)            = this.GetDoubleOption name
+    member this.GetGuidOption (name : string)             = name |> this.GetOption (fun i -> this.GetGuid(i))
+    member this.GetInt16Option (name : string)            = name |> this.GetOption (fun i -> this.GetInt16(i))
+    member this.GetInt32Option (name : string)            = name |> this.GetOption (fun i -> this.GetInt32(i))
+    member this.GetInt64Option (name : string)            = name |> this.GetOption (fun i -> this.GetInt64(i))  
     
-    member this.GetString (name : string)         = match this.GetStringOption name         with Some v -> v | None -> null
-    member this.GetBoolean (name : string)        = match this.GetBooleanOption name        with Some v -> v | None -> false
-    member this.GetByte (name : string)           = match this.GetByteOption name           with Some v -> v | None -> Byte.MinValue
-    member this.GetChar (name : string)           = match this.GetCharOption name           with Some v -> v | None -> Char.MinValue
-    member this.GetDateTime (name : string)       = match this.GetDateTimeOption name       with Some v -> v | None -> DateTime.MinValue
-    member this.GetDateTimeOffset (name : string) = match this.GetDateTimeOffsetOption name with Some v -> v | None -> DateTimeOffset.MinValue
-    member this.GetDecimal (name : string)        = match this.GetDecimalOption name        with Some v -> v | None -> 0.0M
-    member this.GetDouble (name : string)         = match this.GetDoubleOption name         with Some v -> v | None -> 0.0
-    member this.GetFloat (name : string)          = match this.GetFloatOption name          with Some v -> v | None -> 0.0
-    member this.GetGuid (name : string)           = match this.GetGuidOption name           with Some v -> v | None -> Guid.Empty
-    member this.GetInt16 (name : string)          = match this.GetInt16Option name          with Some v -> v | None -> 0s
-    member this.GetInt32 (name : string)          = match this.GetInt32Option name          with Some v -> v | None -> 0
-    member this.GetInt64 (name : string)          = match this.GetInt64Option name          with Some v -> v | None -> 0L  
+    member this.GetString (name : string)                 = match this.GetStringOption name         with Some v -> v | None -> null
+    member this.GetBoolean (name : string)                = match this.GetBooleanOption name        with Some v -> v | None -> false
+    member this.GetByte (name : string)                   = match this.GetByteOption name           with Some v -> v | None -> Byte.MinValue
+    member this.GetChar (name : string)                   = match this.GetCharOption name           with Some v -> v | None -> Char.MinValue
+    member this.GetDateTime (name : string)               = match this.GetDateTimeOption name       with Some v -> v | None -> DateTime.MinValue
+    member this.GetDateTimeOffset (name : string)         = match this.GetDateTimeOffsetOption name with Some v -> v | None -> DateTimeOffset.MinValue
+    member this.GetDecimal (name : string)                = match this.GetDecimalOption name        with Some v -> v | None -> 0.0M
+    member this.GetDouble (name : string)                 = match this.GetDoubleOption name         with Some v -> v | None -> 0.0
+    member this.GetFloat (name : string)                  = match this.GetFloatOption name          with Some v -> v | None -> 0.0
+    member this.GetGuid (name : string)                   = match this.GetGuidOption name           with Some v -> v | None -> Guid.Empty
+    member this.GetInt16 (name : string)                  = match this.GetInt16Option name          with Some v -> v | None -> 0s
+    member this.GetInt32 (name : string)                  = match this.GetInt32Option name          with Some v -> v | None -> 0
+    member this.GetInt64 (name : string)                  = match this.GetInt64Option name          with Some v -> v | None -> 0L  
     
     member this.GetNullableBoolean (name : string)        = match this.GetBooleanOption name with Some v -> Nullable<Boolean>(v) | None -> Nullable<Boolean>()
     member this.GetNullableByte (name : string)           = match this.GetByteOption name with Some v -> Nullable<Byte>(v) | None -> Nullable<Byte>()
@@ -375,8 +578,7 @@ type IDataReader with
     member this.GetNullableInt16 (name : string)          = match this.GetInt16Option name with Some v -> Nullable<Int16>(v) | None -> Nullable<Int16>()
     member this.GetNullableInt32 (name : string)          = match this.GetInt32Option name with Some v -> Nullable<Int32>(v) | None -> Nullable<Int32>()
     member this.GetNullableInt64 (name : string)          = match this.GetInt64Option name with Some v -> Nullable<Int64>(v) | None -> Nullable<Int64>()  
-
-    
+        
     member this.GetBytesOption (name : string) : byte[] option =
         match name |> this.GetOrdinalOption with
         | None   -> None
