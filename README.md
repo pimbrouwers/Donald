@@ -11,13 +11,23 @@ This library is named after him.
 
 > Honorable mention goes to [@dysme](https://github.com/dsyme) another important Donald and F#'s [BDFL](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life).
 
-## Getting Started
+## Features
 
 Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. It is an entirely generic abstraction, and will work with all ADO implementations.
 
 Functional wrappers are available for all the `IDbCommand` methods: `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and a full-suite of `IDataReader` extension methods to make retrieving values safer and more direct.
 
 > If you came looking for an ORM, this is not your light saber. And may the force be with you.
+
+Key features:
+
+- Generic, supports all ADO implementations
+- A natural DSL for interacting with databases
+- Full async support
+- Opt-in explicit error flow control
+- `IDataReader` extensions to facilitate mapping
+
+## Getting Started
 
 Install the [Donald](https://www.nuget.org/packages/Donald/) NuGet package:
 
@@ -78,6 +88,24 @@ let findAuthors connectionFactory search =
           conn
 ```
 
+Or async:
+
+```f#
+let findAuthors connectionFactory search =
+    async {
+        use conn = createConn connectionFactory
+
+        return! 
+            queryAsync
+                "SELECT author_id, full_name
+                 FROM   author
+                 WHERE  full_name LIKE @search"
+                [ newParam "search" (SqlType.String search) ]
+                Author.FromDataReader
+                conn
+    }
+```
+
 ### Query for exactly one strongly-type result
 
 ```f#
@@ -91,6 +119,23 @@ let getAuthor connectionFactory authorId =
          [ newParam "author_id" (SqlType.Int authorId) ]
          Author.FromDataReader 
          conn
+```
+
+Or async:
+
+```f#
+let getAuthor connectionFactory authorId =
+    async {
+        use conn = createConn connectionFactory
+
+        return! 
+            querySingleAsync 
+                "SELECT author_id, full_name
+                 FROM   author
+                 WHERE  author_id = @author_id"
+                [ newParam "author_id" (SqlType.Int authorId) ]
+                Author.FromDataReader 
+                conn
 ```
 
 ### Doing work transactionally

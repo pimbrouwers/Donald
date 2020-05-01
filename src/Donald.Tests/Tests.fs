@@ -18,7 +18,7 @@ type Author =
         AuthorId : int
         FullName : string
     }
-    static member fromReader (rd : IDataReader) =
+    static member FromReader (rd : IDataReader) =
         {
             AuthorId = rd.GetInt32("author_id")
             FullName = rd.GetString("full_name")
@@ -178,7 +178,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id IN (1,2)"
                      []
-                     Author.fromReader
+                     Author.FromReader
                      conn
             
             authors.Length |> should equal 2
@@ -191,7 +191,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id IN (1,2)"
                      []
-                     Author.fromReader
+                     Author.FromReader
                      conn
             
             authorsResult |> should be instanceOfType<DbResult<Author list>>
@@ -208,7 +208,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id IN (1,2)"
                      []
-                     Author.fromReader
+                     Author.FromReader
                      conn
                 |> Async.RunSynchronously
             
@@ -221,7 +221,7 @@ module IntegrationTests =
                     "SELECT author_id, full_name
                      FROM   fake_author"
                      []
-                     Author.fromReader
+                     Author.FromReader
                      conn
             
             authorsResult |> should be instanceOfType<DbResult<Author list>>
@@ -238,7 +238,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id = 1"
                      []
-                     Author.fromReader
+                     Author.FromReader
                      conn
             
             author.IsSome         |> should equal true
@@ -265,7 +265,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id = 1"
                      []
-                     Author.fromReader
+                     Author.FromReader
                      conn
                         
             authorResult |> should be instanceOfType<DbResult<Author option>>
@@ -286,7 +286,7 @@ module IntegrationTests =
                      FROM   fake_author
                      WHERE  AND author_id = 1"
                      []
-                     Author.fromReader
+                     Author.FromReader
                      conn
 
             authorResult |> should be instanceOfType<DbResult<Author option>>
@@ -303,7 +303,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id = 1"
                      []
-                     Author.fromReader
+                     Author.FromReader
                      conn
                 |> Async.RunSynchronously
             
@@ -327,7 +327,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id = @author_id"
                      [ newParam "author_id" (SqlType.Int authorId) ]
-                     Author.fromReader       
+                     Author.FromReader       
                      conn
 
             author.IsSome |> should equal true
@@ -389,7 +389,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id = @author_id"
                      [ newParam "author_id" (SqlType.Int authorId) ]
-                     Author.fromReader       
+                     Author.FromReader       
                      conn
                 |> Async.RunSynchronously
 
@@ -457,7 +457,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id = @author_id"
                      [ newParam "author_id" (SqlType.Int authorId) ]
-                     Author.fromReader            
+                     Author.FromReader            
                      conn 
 
             author.IsSome |> should equal true
@@ -506,7 +506,7 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id = @author_id"
                      [ newParam "author_id" (SqlType.Int authorId) ]
-                     Author.fromReader            
+                     Author.FromReader            
                      conn 
                 |> Async.RunSynchronously
 
