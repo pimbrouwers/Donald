@@ -110,8 +110,7 @@ module IntegrationTests =
     [<Collection("Db")>]
     type Statements() = 
         [<Fact>]
-        member __.``SELECT all sql types`` () =
-            let char : char = 'a'
+        member __.``SELECT all sql types`` () =            
             let result = 
                 querySingle 
                     "SELECT  @p_null AS p_null
@@ -170,7 +169,6 @@ module IntegrationTests =
                     conn
             
             result.IsSome         |> should equal true
-
                            
         [<Fact>]
         member __.``SELECT records`` () =            
@@ -201,6 +199,20 @@ module IntegrationTests =
             match authorsResult with
             | DbResult authors -> authors.Length |> should equal 2
             | _ -> "DbResult should not be DbError" |> should equal false
+
+        [<Fact>]
+        member __.``SELECT records async`` () =            
+            let authors =
+                queryAsync 
+                    "SELECT author_id, full_name
+                     FROM   author
+                     WHERE  author_id IN (1,2)"
+                     []
+                     Author.fromReader
+                     conn
+                |> Async.RunSynchronously
+            
+            authors.Length |> should equal 2
 
         [<Fact>]
         member __.``SELECT records should fail and create DbError`` () =
@@ -284,6 +296,21 @@ module IntegrationTests =
             | _ -> "DbResult should not be Ok" |> should equal false
             
         [<Fact>]
+        member __.``SELECT single record async`` () =            
+            let author =
+                querySingleAsync
+                    "SELECT author_id, full_name
+                     FROM   author
+                     WHERE  author_id = 1"
+                     []
+                     Author.fromReader
+                     conn
+                |> Async.RunSynchronously
+            
+            author.IsSome         |> should equal true
+            author.Value.AuthorId |> should equal 1
+            
+        [<Fact>]
         member __.``INSERT author then retrieve to verify`` () =
             let fullName = "Jane Doe"
             let authorId = 
@@ -343,6 +370,36 @@ module IntegrationTests =
             match authorInsertResult with
             | DbError ex -> ex |> should be instanceOfType<Exception>
             | _ -> "DbResult should not be Ok" |> should equal false
+
+        [<Fact>]
+        member __.``INSERT async author then retrieve to verify`` () =
+            let fullName = "Janet Doe"
+            let authorId = 
+                 scalarAsync
+                    "INSERT INTO author (full_name) VALUES (@full_name);
+                     SELECT LAST_INSERT_ROWID();"
+                    [ newParam "full_name" (SqlType.String fullName)]
+                    Convert.ToInt32
+                    conn 
+                |> Async.RunSynchronously
+
+            let author = 
+                querySingleAsync
+                    "SELECT author_id, full_name
+                     FROM   author
+                     WHERE  author_id = @author_id"
+                     [ newParam "author_id" (SqlType.Int authorId) ]
+                     Author.fromReader       
+                     conn
+                |> Async.RunSynchronously
+
+            author.IsSome |> should equal true
+
+            match author with
+            | Some author ->
+                author.FullName |> should equal fullName
+            | None -> 
+                ()
 
         [<Fact>]
         member __.``INSERT MANY authors then count to verify`` () =
@@ -430,6 +487,37 @@ module IntegrationTests =
             | DbError ex -> ex |> should be instanceOfType<Exception>
             | _ -> "DbResult should not be Ok" |> should equal false
 
+        [<Fact>]
+        member __.``UPDATE async author then retrieve to verify`` () =
+            let authorId = 1
+            let fullName = "Jim Brouwers"
+            execAsync
+                "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
+                [ 
+                    newParam "author_id" (SqlType.Int authorId)
+                    newParam "full_name" (SqlType.String fullName)
+                ]
+                conn
+            |> Async.RunSynchronously
+                
+            let author = 
+                querySingleAsync
+                    "SELECT author_id, full_name
+                     FROM   author
+                     WHERE  author_id = @author_id"
+                     [ newParam "author_id" (SqlType.Int authorId) ]
+                     Author.fromReader            
+                     conn 
+                |> Async.RunSynchronously
+
+            author.IsSome |> should equal true
+
+            match author with
+            | Some author ->
+                author.FullName |> should equal fullName
+            | None -> 
+                ()
+        
         [<Fact>]
         member __.``INSERT+SELECT binary should work`` () =
             let testString = "A sample of bytes"
