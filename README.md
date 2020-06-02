@@ -52,13 +52,14 @@ type Author =
         AuthorId : int
         FullName : string
     }
-    // Not mandatory, but helpful
-    static member FromDataReader (rd : IDataReader) = 
-        {
-            // IDataReader extension method (see below)
-            AuthorId = rd.GetInt32("author_id")  
-            FullName = rd.GetString("full_name")
-        }
+    
+module Author
+		let fromDataReader (rd : IDataReader) = 
+					{
+							// IDataReader extension method (see below)
+							AuthorId = rd.GetInt32("author_id")  
+							FullName = rd.GetString("full_name")
+					}
 ```
 
 ### Define a `DbConnectionFactory`
@@ -84,7 +85,7 @@ let findAuthors connectionFactory search =
           FROM   author
           WHERE  full_name LIKE @search"
           [ newParam "search" (SqlType.String search) ]
-          Author.FromDataReader
+          Author.fromDataReader
           conn
 ```
 
@@ -101,7 +102,7 @@ let findAuthors connectionFactory search =
                  FROM   author
                  WHERE  full_name LIKE @search"
                 [ newParam "search" (SqlType.String search) ]
-                Author.FromDataReader
+                Author.fromDataReader
                 conn
     }
 ```
@@ -117,7 +118,7 @@ let getAuthor connectionFactory authorId =
          FROM   author
          WHERE  author_id = @author_id"
          [ newParam "author_id" (SqlType.Int authorId) ]
-         Author.FromDataReader 
+         Author.fromDataReader 
          conn
 ```
 
@@ -134,7 +135,7 @@ let getAuthor connectionFactory authorId =
                  FROM   author
                  WHERE  author_id = @author_id"
                 [ newParam "author_id" (SqlType.Int authorId) ]
-                Author.FromDataReader 
+                Author.fromDataReader 
                 conn
 ```
 
@@ -227,7 +228,7 @@ let tryFindAuthors connectionFactory search =
         FROM   author
         WHERE  full_name LIKE @search"
         [ newParam "search" (SqlType.String search) ]
-        Author.FromDataReader
+        Author.fromDataReader
         conn
 
 // Consuming the database call elsewhere in the code
