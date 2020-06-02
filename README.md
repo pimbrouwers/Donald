@@ -54,12 +54,12 @@ type Author =
     }
     
 module Author
-		let fromDataReader (rd : IDataReader) = 
-					{
-							// IDataReader extension method (see below)
-							AuthorId = rd.GetInt32("author_id")  
-							FullName = rd.GetString("full_name")
-					}
+    let fromDataReader (rd : IDataReader) = 
+          {
+              // IDataReader extension method (see below)
+              AuthorId = rd.GetInt32("author_id")  
+              FullName = rd.GetString("full_name")
+          }
 ```
 
 ### Define a `DbConnectionFactory`
