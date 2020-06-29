@@ -210,6 +210,7 @@ module IntegrationTests =
                      []
                      Author.FromReader
                      conn
+                |> Async.AwaitTask
                 |> Async.RunSynchronously
             
             authors.Length |> should equal 2
@@ -305,6 +306,7 @@ module IntegrationTests =
                      []
                      Author.FromReader
                      conn
+                |> Async.AwaitTask
                 |> Async.RunSynchronously
             
             author.IsSome         |> should equal true
@@ -381,6 +383,7 @@ module IntegrationTests =
                     [ newParam "full_name" (SqlType.String fullName)]
                     Convert.ToInt32
                     conn 
+                |> Async.AwaitTask
                 |> Async.RunSynchronously
 
             let author = 
@@ -391,6 +394,7 @@ module IntegrationTests =
                      [ newParam "author_id" (SqlType.Int authorId) ]
                      Author.FromReader       
                      conn
+                |> Async.AwaitTask
                 |> Async.RunSynchronously
 
             author.IsSome |> should equal true
@@ -498,6 +502,7 @@ module IntegrationTests =
                     newParam "full_name" (SqlType.String fullName)
                 ]
                 conn
+            |> Async.AwaitTask
             |> Async.RunSynchronously
                 
             let author = 
@@ -508,6 +513,7 @@ module IntegrationTests =
                      [ newParam "author_id" (SqlType.Int authorId) ]
                      Author.FromReader            
                      conn 
+                |> Async.AwaitTask
                 |> Async.RunSynchronously
 
             author.IsSome |> should equal true

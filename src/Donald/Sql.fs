@@ -4,6 +4,7 @@ open System
 open System.Data
 open System.Data.Common
 open System.IO
+open FSharp.Control.Tasks
 
 /// Represents the ability to create a new IDbConnection
 type DbConnectionFactory = unit -> IDbConnection
@@ -185,13 +186,13 @@ let tranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (t
 
 /// Query async for multiple results within transaction scope
 let tranQueryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
-    async {
+    task {
         use cmd = newCommand sql param tran :?> DbCommand
-        use! rd = cmd.ExecuteReaderAsync() |> Async.AwaitTask        
+        use! rd = cmd.ExecuteReaderAsync()        
 
         let rec loopAsync (acc : 'a list) (rd : DbDataReader) =
-            async {
-                let! canRead = rd.ReadAsync() |> Async.AwaitTask
+            task {
+                let! canRead = rd.ReadAsync()
                 match canRead with
                 | false -> return acc
                 | true  -> 
@@ -214,7 +215,7 @@ let query (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn 
     
 /// Query async for multiple results
 let queryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
-    async {
+    task {
         use tran = beginTran conn
         let! results = tranQueryAsync sql param map tran
         commitTran tran
@@ -230,7 +231,7 @@ let tryTranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a)
 
 /// Try to query for multiple results within transaction scope
 let tryTranQueryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
-    async {
+    task {
         try
             let! result = tranQueryAsync sql param map tran
             return DbResult result
@@ -248,7 +249,7 @@ let tryQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (co
 
 /// Query async for multiple results
 let tryQueryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =   
-    async {
+    task {
         try
             use tran = beginTran conn
             let! results = tranQueryAsync sql param map tran
@@ -266,10 +267,10 @@ let tranQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> 
 
 /// Query async for single result within transaction scope
 let tranQuerySingleAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
-    async {
+    task {
         use cmd = newCommand sql param tran :?> DbCommand
-        use! rd = cmd.ExecuteReaderAsync() |> Async.AwaitTask
-        let! canRead = rd.ReadAsync() |> Async.AwaitTask
+        use! rd = cmd.ExecuteReaderAsync()
+        let! canRead = rd.ReadAsync()
         return if canRead then Some(map rd) else None
     }
 
@@ -282,7 +283,7 @@ let querySingle (sql : string) (param : DbParam list) (map : IDataReader -> 'a) 
 
 /// Query for single result
 let querySingleAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
-    async {
+    task {
         use tran = beginTran conn
         let! result = tranQuerySingleAsync sql param map tran
         commitTran tran
@@ -298,7 +299,7 @@ let tryTranQuerySingle (sql : string) (param : DbParam list) (map : IDataReader 
 
 /// Try to query async for single result within transaction scope
 let tryTranQuerySingleAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
-    async {
+    task {
         try
             let! result = tranQuerySingleAsync sql param map tran
             return DbResult result
@@ -316,7 +317,7 @@ let tryQuerySingle (sql : string) (param : DbParam list) (map : IDataReader -> '
 
 /// Query for single result
 let tryQuerySingleAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
-    async {
+    task {
         try
             use tran = beginTran conn
             let! result = tranQuerySingleAsync sql param map tran 
@@ -333,9 +334,9 @@ let tranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
 
 /// Execute async query with no results within transction scope
 let tranExecAsync (sql : string) (param : DbParam list) (tran : IDbTransaction) =
-    async {
+    task {
         use cmd = newCommand sql param tran :?> DbCommand   
-        let! _ = cmd.ExecuteNonQueryAsync() |> Async.AwaitTask
+        let! _ = cmd.ExecuteNonQueryAsync()
         return ()
     }
 
@@ -347,10 +348,10 @@ let exec (sql : string) (param : DbParam list) (conn : IDbConnection) =
 
 /// Execute async query with no results
 let execAsync (sql : string) (param : DbParam list) (conn : IDbConnection) =
-    async {
+    task {
         use tran = beginTran conn
         use cmd = newCommand sql param tran :?> DbCommand
-        let! _ = cmd.ExecuteNonQueryAsync() |> Async.AwaitTask
+        let! _ = cmd.ExecuteNonQueryAsync()
         commitTran tran
     }
 
@@ -363,7 +364,7 @@ let tryTranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
 
 /// Try to execute async query with no results within transction scope
 let tryTranExecAsync (sql : string) (param : DbParam list) (tran : IDbTransaction) =
-    async {
+    task {
         try
             do! tranExecAsync sql param tran 
             return DbResult ()
@@ -381,7 +382,7 @@ let tryExec (sql : string) (param : DbParam list) (conn : IDbConnection) =
 
 /// Try to execute query with no results
 let tryExecAsync (sql : string) (param : DbParam list) (conn : IDbConnection) =
-    async {
+    task {
         try
             use tran = beginTran conn
             do! tranExecAsync sql param tran 
@@ -401,12 +402,12 @@ let tranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTrans
 
 /// Execute query async with no results many times within transction scope
 let tranExecManyAsync (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
-    async {
+    task {
         use cmd = newIDbCommand sql tran :?> DbCommand
         for param in manyParam do
             clearParameters cmd
             assignDbParams cmd param
-            cmd.ExecuteNonQueryAsync() |> Async.AwaitTask |> ignore
+            cmd.ExecuteNonQueryAsync() |> ignore
     }
         
 /// Execute a query with no results many times
@@ -417,7 +418,7 @@ let execMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnectio
 
 /// Execute a query async with no results many times
 let execManyAsync (sql : string) (manyParam : DbParam list list) (conn : IDbConnection) =
-    async {
+    task {
         use tran = beginTran conn
         do! tranExecManyAsync sql manyParam tran
         commitTran tran
@@ -432,7 +433,7 @@ let tryTranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTr
 
 /// Try to execute query async with no results many times within transction scope
 let tryTranExecManyAsync (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
-    async { 
+    task { 
         try
             do! tranExecManyAsync sql manyParam tran
             return DbResult ()
@@ -450,7 +451,7 @@ let tryExecMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnec
 
 /// Try to execute a query async with no results many times
 let tryExecManyAsync (sql : string) (manyParam : DbParam list list) (conn : IDbConnection) =
-    async {
+    task {
         try
             use tran = beginTran conn
             do! tranExecManyAsync sql manyParam tran
@@ -467,9 +468,9 @@ let tranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran
 
 /// Execute query async that returns scalar result within transcation scope
 let tranScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
-    async {
+    task {
         use cmd = newCommand sql param tran :?> DbCommand
-        let! result = cmd.ExecuteScalarAsync() |> Async.AwaitTask
+        let! result = cmd.ExecuteScalarAsync()
         return convert (result)
     }
 
@@ -482,7 +483,7 @@ let scalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : I
 
 /// Execute query async with scalar result
 let scalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : IDbConnection) =
-    async {
+    task {
         use tran = beginTran conn
         let! v = tranScalarAsync sql param convert tran
         commitTran tran
@@ -498,7 +499,7 @@ let tryTranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (t
 
 /// Try to execute query async that returns scalar result within transcation scope
 let tryTranScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
-    async {
+    task {
         try
             let! result = tranScalarAsync sql param convert tran
             return DbResult result
@@ -516,7 +517,7 @@ let tryScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn 
 
 /// Try to execute query async with scalar result
 let tryScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn : IDbConnection) =
-    async {
+    task {
         try
             use tran = beginTran conn
             let! result = tranScalarAsync sql param convert tran
