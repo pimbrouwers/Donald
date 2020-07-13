@@ -93,7 +93,7 @@ Or async:
 
 ```f#
 let findAuthors connectionFactory search =
-    async {
+    task {
         use conn = createConn connectionFactory
 
         return! 
@@ -126,7 +126,7 @@ Or async:
 
 ```f#
 let getAuthor connectionFactory authorId =
-    async {
+    task {
         use conn = createConn connectionFactory
 
         return! 
@@ -137,6 +137,7 @@ let getAuthor connectionFactory authorId =
                 [ newParam "author_id" (SqlType.Int authorId) ]
                 Author.fromDataReader 
                 conn
+    }
 ```
 
 ### Doing work transactionally
