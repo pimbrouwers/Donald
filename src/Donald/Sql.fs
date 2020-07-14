@@ -87,77 +87,80 @@ let newIDbCommand (sql : string) (tran : IDbTransaction) =
 
 /// Assign DbParam to IDbCommand
 let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
+    let setParamValue (p : IDbDataParameter) (v : obj) =
+        if v = null then p.Value <- DBNull.Value
+        else p.Value <- v
+
     dbParams
     |> Seq.iter (fun param ->
         let p = cmd.CreateParameter()        
         p.ParameterName <- param.Name
-        p.Value <- param.Value
-
+        
         match param.Value with
         | Null -> 
             p.Value <- DBNull.Value
 
         | String v -> 
             p.DbType <- DbType.String
-            p.Value <- v
+            setParamValue p v
 
         | AnsiString v ->
             p.DbType <- DbType.AnsiString
-            p.Value <- v
+            setParamValue p v
 
         | Boolean v -> 
             p.DbType <- DbType.Boolean
-            p.Value <- v
+            setParamValue p v
 
         | Byte v -> 
             p.DbType <- DbType.Byte
-            p.Value <- v
+            setParamValue p v
 
         | Char v -> 
             p.DbType <- DbType.AnsiString
-            p.Value <- v
+            setParamValue p v
 
         | AnsiChar v ->
             p.DbType <- DbType.String
-            p.Value <- v
+            setParamValue p v
 
         | Decimal v -> 
             p.DbType <- DbType.Decimal
-            p.Value <- v
+            setParamValue p v
 
         | Double v
         | Float v ->
             p.DbType <- DbType.Double
-            p.Value <- v 
+            setParamValue p v 
 
         | Int16 v -> 
             p.DbType <- DbType.Int16
-            p.Value <- v
+            setParamValue p v
 
         | Int32 v 
         | Int v -> 
             p.DbType <- DbType.Int32
-            p.Value <- v
+            setParamValue p v
 
         | Int64 v -> 
             p.DbType <- DbType.Int64
-            p.Value <- v
+            setParamValue p v
             
         | Guid v -> 
             p.DbType <- DbType.Guid
-            p.Value <- v
+            setParamValue p v
 
         | DateTime v -> 
             p.DbType <- DbType.DateTime
-            p.Value <- v
+            setParamValue p v
 
         | DateTimeOffset v ->
             p.DbType <- DbType.DateTimeOffset
-            p.Value <- v
+            setParamValue p v
 
         | Bytes v -> 
             p.DbType <- DbType.Binary
-            p.Value <- v
+            setParamValue p v
 
         cmd.Parameters.Add(p) |> ignore)
 
