@@ -249,7 +249,7 @@ module TaskBuilderInternal =
         static member (>>=) (Priority1, a : 'a Async)                      = fun (k : 'a -> 'b Step) -> bindTaskConfigureFalse (Async.StartAsTask a) k
 
     type ReturnFromI = Priority1 with
-        static ($) (_:Priority2, taskLike)           = Binder<_>.GenericAwait(taskLike, ret)
+        static member inline ($) (_:Priority2, taskLike)           = Binder<_>.GenericAwait(taskLike, ret)
         static member inline ($) (Priority1, configurableTaskLike) = Binder<_>.GenericAwaitConfigureFalse(configurableTaskLike, ret)
         static member ($) (Priority1, a : 'a Async)                = bindTaskConfigureFalse (Async.StartAsTask a) ret
 
