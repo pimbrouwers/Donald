@@ -20,7 +20,7 @@
 
     <!-- NuGet config -->
     <PackageId>Donald</PackageId>
-    <PackageVersion>3.0.1</PackageVersion>
+    <PackageVersion>3.0.2</PackageVersion>
     <PackageTags>fsharp;functional;database;sql;ado;adonet</PackageTags>        
     <PackageProjectUrl>https://github.com/pimbrouwers/Donald</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -39,7 +39,15 @@
 
   <ItemGroup>
     <Compile Include="TaskBuilder.fs" />
-    <Compile Include="Sql.fs" />
+    <Compile Include="Core.fs" />
+    <Compile Include="Connection.fs" />
+    <Compile Include="Command.fs" />
+    <Compile Include="DataReader.fs" />
+    <Compile Include="Exec.fs" />
+    <Compile Include="ExecMany.fs" />
+    <Compile Include="Scalar.fs" />
+    <Compile Include="Query.fs" />
+    <Compile Include="QuerySingle.fs" />
   </ItemGroup>
 
 </Project>
