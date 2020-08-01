@@ -46,9 +46,9 @@ module UnitTests =
             [<Fact>]
             let ``Should create valid DbParam`` () =
                 let v = (SqlType.Int 1)
-                let p = newParam "test" v
-                p.Name  |> should equal "test"
-                p.Value |> should equal v
+                let p = struct ("test", v)
+                p |> dbpName |> should equal "test"
+                p |> dbpValue |> should equal v
                 
 module IntegrationTests =
     
@@ -97,7 +97,7 @@ module IntegrationTests =
         [<Fact>]
         member __.``Should create command with params`` () =            
             use tran = beginTran conn
-            let c = newCommand "SELECT @n" [ newParam "n" (SqlType.Int 2) ] tran
+            let c = newCommand "SELECT @n" [ "n", (SqlType.Int 2) ] tran
 
             c.Connection.ConnectionString |> should equal connectionString
             c.CommandText                 |> should equal "SELECT @n"
@@ -130,22 +130,22 @@ module IntegrationTests =
                            , @p_date_time AS p_date_time
                            , @p_date_time_offset AS p_date_time_offset"
                     [
-                        newParam "p_null" (SqlType.Null)
-                        newParam "p_string" (SqlType.String "p_string")
-                        newParam "p_ansi_string" (SqlType.AnsiString "p_ansi_string")
-                        newParam "p_boolean" (SqlType.Boolean false)
-                        newParam "p_byte" (SqlType.Byte Byte.MinValue)
-                        newParam "p_char" (SqlType.Char 'a')
-                        newParam "p_ansi_char" (SqlType.AnsiChar Char.MinValue)
-                        newParam "p_decimal" (SqlType.Decimal 0.0M)
-                        newParam "p_double" (SqlType.Double 0.0)
-                        newParam "p_float" (SqlType.Float 0.0)
-                        newParam "p_guid" (SqlType.Guid (Guid.NewGuid()))
-                        newParam "p_int16" (SqlType.Int16 0s)
-                        newParam "p_int32" (SqlType.Int32 0)
-                        newParam "p_int64" (SqlType.Int64 0L)
-                        newParam "p_date_time" (SqlType.DateTime DateTime.Now)
-                        newParam "p_date_time_offset" (SqlType.DateTimeOffset DateTimeOffset.Now)
+                        "p_null", SqlType.Null
+                        "p_string", SqlType.String "p_string"
+                        "p_ansi_string", SqlType.AnsiString "p_ansi_string"
+                        "p_boolean", SqlType.Boolean false
+                        "p_byte", SqlType.Byte Byte.MinValue
+                        "p_char", SqlType.Char 'a'
+                        "p_ansi_char", SqlType.AnsiChar Char.MinValue
+                        "p_decimal", SqlType.Decimal 0.0M
+                        "p_double", SqlType.Double 0.0
+                        "p_float", SqlType.Float 0.0
+                        "p_guid", SqlType.Guid (Guid.NewGuid())
+                        "p_int16", SqlType.Int16 0s
+                        "p_int32", SqlType.Int32 0
+                        "p_int64", SqlType.Int64 0L
+                        "p_date_time", SqlType.DateTime DateTime.Now
+                        "p_date_time_offset", SqlType.DateTimeOffset DateTimeOffset.Now
                     ]
                     (fun rd -> 
                         {|
@@ -319,7 +319,7 @@ module IntegrationTests =
                  scalar
                     "INSERT INTO author (full_name) VALUES (@full_name);
                      SELECT LAST_INSERT_ROWID();"
-                    [ newParam "full_name" (SqlType.String fullName)]
+                    [ "full_name", SqlType.String fullName ]
                     Convert.ToInt32
                     conn 
 
@@ -328,7 +328,7 @@ module IntegrationTests =
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id = @author_id"
-                     [ newParam "author_id" (SqlType.Int authorId) ]
+                     [ "author_id", SqlType.Int authorId ]
                      Author.FromReader       
                      conn
 
@@ -349,8 +349,8 @@ module IntegrationTests =
                  tryExec
                     "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
                     [ 
-                        newParam "full_name" (SqlType.String fullName) 
-                        newParam "birth_date" (match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null) 
+                        "full_name", SqlType.String fullName
+                        "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null
                     ]
                     conn 
 
@@ -364,7 +364,7 @@ module IntegrationTests =
             let authorInsertResult = 
                  tryExec
                     "INSERT INTO fake_author (full_name) VALUES (@full_nameaaaa);"
-                    [ newParam "full_name" (SqlType.String fullName)]                    
+                    [ "full_name", SqlType.String fullName ]                    
                     conn 
 
             authorInsertResult |> should be instanceOfType<DbResult<unit>>
@@ -380,7 +380,7 @@ module IntegrationTests =
                  scalarAsync
                     "INSERT INTO author (full_name) VALUES (@full_name);
                      SELECT LAST_INSERT_ROWID();"
-                    [ newParam "full_name" (SqlType.String fullName)]
+                    [ "full_name", SqlType.String fullName ]
                     Convert.ToInt32
                     conn 
                 |> Async.AwaitTask
@@ -391,7 +391,7 @@ module IntegrationTests =
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id = @author_id"
-                     [ newParam "author_id" (SqlType.Int authorId) ]
+                     [ "author_id", SqlType.Int authorId ]
                      Author.FromReader       
                      conn
                 |> Async.AwaitTask
@@ -409,10 +409,10 @@ module IntegrationTests =
         member __.``INSERT MANY authors then count to verify`` () =
             let initialCount = scalar "SELECT COUNT(author_id) FROM author" [] Convert.ToInt32 conn
            
-            let authorParams = 
+            let authorParams : DbParam list list = 
                 [
-                    [ newParam "full_name" (SqlType.String "Bugs Bunny") ]
-                    [ newParam "full_name" (SqlType.String "Donald Duck") ]
+                    [ "full_name", SqlType.String "Bugs Bunny" ]
+                    [ "full_name", SqlType.String "Donald Duck" ]
                 ]                
             execMany
                 "INSERT INTO author (full_name) VALUES (@full_name);"                
@@ -425,10 +425,10 @@ module IntegrationTests =
 
         [<Fact>]
         member __.``INSERT MANY should fail and create DbError`` () =
-            let authorParams = 
+            let authorParams : DbParam list list = 
                 [
-                    [ newParam "full_name" (SqlType.String "Bugs Bunny") ]
-                    [ newParam "full_name" (SqlType.String "Donald Duck") ]
+                    [ "full_name", SqlType.String "Bugs Bunny" ]
+                    [ "full_name", SqlType.String "Donald Duck" ]
                 ]   
                 
             let authorsResult =
@@ -450,8 +450,8 @@ module IntegrationTests =
             exec
                 "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
                 [ 
-                    newParam "author_id" (SqlType.Int authorId)
-                    newParam "full_name" (SqlType.String fullName)
+                    "author_id", SqlType.Int authorId
+                    "full_name", SqlType.String fullName
                 ]
                 conn
                 
@@ -460,7 +460,7 @@ module IntegrationTests =
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id = @author_id"
-                     [ newParam "author_id" (SqlType.Int authorId) ]
+                     [ "author_id", SqlType.Int authorId ]
                      Author.FromReader            
                      conn 
 
@@ -480,8 +480,8 @@ module IntegrationTests =
                 tryExec
                     "UPDATE fake_author SET full_name = @full_name WHERE aauthor_id = @author_idda"
                     [ 
-                        newParam "author_id" (SqlType.Int authorId)
-                        newParam "full_name" (SqlType.String fullName)
+                        "author_id", SqlType.Int authorId
+                        "full_name", SqlType.String fullName
                     ]
                     conn
 
@@ -498,8 +498,8 @@ module IntegrationTests =
             execAsync
                 "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
                 [ 
-                    newParam "author_id" (SqlType.Int authorId)
-                    newParam "full_name" (SqlType.String fullName)
+                    "author_id", SqlType.Int authorId
+                    "full_name", SqlType.String fullName
                 ]
                 conn
             |> Async.AwaitTask
@@ -510,7 +510,7 @@ module IntegrationTests =
                     "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id = @author_id"
-                     [ newParam "author_id" (SqlType.Int authorId) ]
+                     [ "author_id", SqlType.Int authorId ]
                      Author.FromReader            
                      conn 
                 |> Async.AwaitTask
@@ -531,14 +531,14 @@ module IntegrationTests =
             let fileId = 
                 scalar
                     "INSERT INTO file (data) VALUES (@data); SELECT LAST_INSERT_ROWID();" 
-                    [ newParam "data" (SqlType.Bytes bytes) ]
+                    [ "data", SqlType.Bytes bytes ]
                     Convert.ToInt32
                     conn
 
             let retrievedBytes =
                 querySingle
                     "SELECT data FROM file WHERE file_id = @file_id"
-                    [ newParam "file_id" (SqlType.Int fileId) ]
+                    [ "file_id", SqlType.Int fileId ]
                     (fun rd -> rd.GetBytes("data"))
                     conn
 

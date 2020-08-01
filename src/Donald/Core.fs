@@ -35,10 +35,10 @@ type SqlType =
     | Bytes          of Byte[]
 
 /// Specifies an input parameter for an IDbCommand
-[<Struct>]
-type DbParam = 
-    { 
-        Name : String
-        Value : SqlType
-    }
+type DbParam = (struct (string * SqlType))
 
+/// Extracts first element Name of DbParam struct tuple
+let dbpName param = match param with | struct (x, _) -> x
+
+/// Extracts second element Value of DbParam struct tuple
+let dbpValue param = match param with | struct (_, x) -> x

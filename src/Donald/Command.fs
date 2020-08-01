@@ -13,9 +13,9 @@ let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
     dbParams
     |> Seq.iter (fun param ->
         let p = cmd.CreateParameter()        
-        p.ParameterName <- param.Name
+        p.ParameterName <- (dbpName param)
         
-        match param.Value with
+        match dbpValue param with
         | Null -> 
             p.Value <- DBNull.Value
 
@@ -89,9 +89,9 @@ let clearParameters (cmd : IDbCommand) =
 
 /// DbParam constructor
 let newParam (name : string) (value : SqlType) =
-    { Name = name; Value = value }
-   
-/// Create a new IDbCommand  
+    struct (name, value)
+
+/// Create a new IDbCommand
 let newIDbCommand (commandType : CommandType) (sql : string) (tran : IDbTransaction) =
     let cmd = tran.Connection.CreateCommand()
     cmd.CommandType <- commandType
