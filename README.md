@@ -205,6 +205,25 @@ let insertAuthor connectionFactory fullName =
     authorId 
 ```
 
+### Compose parameters out of tuple lists
+
+```f#
+
+let explicitParams = [
+    newParam "key" (SqlType.String "value")
+    newParam "key2" (SqlType.String "value2")
+]
+
+let mappedParams = newParams [
+    "key", SqlType.String "value"
+    "key2", SqlType.String "value2"
+]
+
+explicitParams |> should equal mappedParams
+
+```
+
+
 ## Handling Database Errors/Exceptions
 
 There are times when the database engine will error. For example, when receiving an invalid SQL statement, missing input variable etc. In these cases, you'll likely be rewarded with an `Exception`. Yay!

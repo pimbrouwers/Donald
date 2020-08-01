@@ -49,6 +49,21 @@ module UnitTests =
                 let p = newParam "test" v
                 p.Name  |> should equal "test"
                 p.Value |> should equal v
+
+            [<Fact>]
+            let ``Should create valid list of DbParams`` () =
+
+                let explicitParams = [
+                    newParam "key" (SqlType.String "value")
+                    newParam "key2" (SqlType.String "value2")
+                ]
+                
+                let mappedParams = newParams [
+                    "key", SqlType.String "value"
+                    "key2", SqlType.String "value2"
+                ]
+            
+                explicitParams |> should equal mappedParams
                 
 module IntegrationTests =
     

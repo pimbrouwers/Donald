@@ -90,6 +90,10 @@ let clearParameters (cmd : IDbCommand) =
 /// DbParam constructor
 let newParam (name : string) (value : SqlType) =
     { Name = name; Value = value }
+
+/// Helper to convert a tuple list to DbParam list
+let newParams (lst : (string * SqlType) list) =
+    [ for k, v in lst -> newParam k v ]
    
 /// Create a new IDbCommand  
 let newIDbCommand (commandType : CommandType) (sql : string) (tran : IDbTransaction) =
