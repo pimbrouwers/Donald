@@ -28,7 +28,7 @@ let commitTran (tran : IDbTransaction) =
            && not(isNull tran.Connection) then tran.Commit() 
     with
         /// Is supposed to throw System.InvalidOperationException
-        /// when commmited or rolled back already, but most
+        /// when committed or rolled back already, but most
         /// implementations do not. So in all cases try rolling back
         | _ -> 
             rollbackTran tran

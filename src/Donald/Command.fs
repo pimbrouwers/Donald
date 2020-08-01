@@ -91,7 +91,7 @@ let clearParameters (cmd : IDbCommand) =
 let newParam (name : string) (value : SqlType) =
     { Name = name; Value = value }
    
-/// Create a new IDbCommand  
+/// Create a new IDbCommand
 let newIDbCommand (commandType : CommandType) (sql : string) (tran : IDbTransaction) =
     let cmd = tran.Connection.CreateCommand()
     cmd.CommandType <- commandType
@@ -99,21 +99,21 @@ let newIDbCommand (commandType : CommandType) (sql : string) (tran : IDbTransact
     cmd.Transaction <- tran
     cmd 
 
-/// Create a new CommanType.Text IDbCommand  
+/// Create a new CommandType.Text IDbCommand
 let newTextDbCommand (sql : string) (tran : IDbTransaction) =
     newIDbCommand CommandType.Text sql tran
 
-/// Create a new CommanType.StoredProcedure IDbCommand  
+/// Create a new CommandType.StoredProcedure IDbCommand
 let newSprocDbCommand (sprocName : string) (tran : IDbTransaction) =
     newIDbCommand CommandType.StoredProcedure sprocName tran
 
-/// Create a new CommandType.Text IDbCommand  
+/// Create a new CommandType.Text IDbCommand
 let newCommand (sql : string) (dbParams : DbParam list) (tran : IDbTransaction) =
     let cmd = newTextDbCommand sql tran
     assignDbParams cmd dbParams
     cmd
 
-/// Create a new CommandType.Text IDbCommand  
+/// Create a new CommandType.StoredProcedure IDbCommand
 let newSproc (sprocName : string) (dbParams : DbParam list) (tran : IDbTransaction) =
     let cmd = newSprocDbCommand sprocName tran
     assignDbParams cmd dbParams

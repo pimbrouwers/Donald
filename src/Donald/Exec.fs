@@ -5,19 +5,19 @@ open System.Data
 open System.Data.Common
 open FSharp.Control.Tasks
 
-/// Execute query with no results within transction scope
+/// Execute query with no results within transaction scope
 let tranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran    
     cmd.ExecuteNonQuery() |> ignore
 
-/// Try to execute query with no results within transction scope
+/// Try to execute query with no results within transaction scope
 let tryTranExec (sql : string) (param : DbParam list) (tran : IDbTransaction) =
     try
         tranExec sql param tran
         |> DbResult
     with ex -> DbError ex
 
-/// Execute async query with no results within transction scope
+/// Execute async query with no results within transaction scope
 let tranExecAsync (sql : string) (param : DbParam list) (tran : IDbTransaction) =
     task {
         use cmd = newCommand sql param tran :?> DbCommand   
@@ -25,7 +25,7 @@ let tranExecAsync (sql : string) (param : DbParam list) (tran : IDbTransaction) 
         return ()
     }
 
-/// Try to execute async query with no results within transction scope
+/// Try to execute async query with no results within transaction scope
 let tryTranExecAsync (sql : string) (param : DbParam list) (tran : IDbTransaction) =
     task {
         try

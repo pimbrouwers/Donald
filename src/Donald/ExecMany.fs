@@ -5,7 +5,7 @@ open System.Data
 open System.Data.Common
 open FSharp.Control.Tasks
 
-/// Execute query with no results many times within transction scope
+/// Execute query with no results many times within transaction scope
 let tranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
     use cmd = newTextDbCommand sql tran    
     for param in manyParam do
@@ -13,14 +13,14 @@ let tranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTrans
         assignDbParams cmd param
         cmd.ExecuteNonQuery() |> ignore
 
-/// Try to execute query with no results many times within transction scope
+/// Try to execute query with no results many times within transaction scope
 let tryTranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
     try
         tranExecMany sql manyParam tran
         |> DbResult
     with ex -> DbError ex
 
-/// Execute query async with no results many times within transction scope
+/// Execute query async with no results many times within transaction scope
 let tranExecManyAsync (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
     task {
         use cmd = newTextDbCommand sql tran :?> DbCommand
@@ -64,7 +64,7 @@ let execManyAsync (sql : string) (manyParam : DbParam list list) (conn : IDbConn
         commitTran tran
     }
 
-/// Try to execute query async with no results many times within transction scope
+/// Try to execute query async with no results many times within transaction scope
 let tryTranExecManyAsync (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
     task { 
         try

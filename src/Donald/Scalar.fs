@@ -5,19 +5,19 @@ open System.Data
 open System.Data.Common
 open FSharp.Control.Tasks
 
-/// Execute query that returns scalar result within transcation scope
+/// Execute query that returns scalar result within transaction scope
 let tranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
     use cmd = newCommand sql param tran
     convert (cmd.ExecuteScalar())
 
-/// Try to execute query that returns scalar result within transcation scope
+/// Try to execute query that returns scalar result within transaction scope
 let tryTranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
     try
         tranScalar sql param convert tran
         |> DbResult
     with ex -> DbError ex
 
-/// Execute query async that returns scalar result within transcation scope
+/// Execute query async that returns scalar result within transaction scope
 let tranScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
     task {
         use cmd = newCommand sql param tran :?> DbCommand
@@ -25,7 +25,7 @@ let tranScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) 
         return convert (result)
     }
 
-/// Try to execute query async that returns scalar result within transcation scope
+/// Try to execute query async that returns scalar result within transaction scope
 let tryTranScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
     task {
         try
