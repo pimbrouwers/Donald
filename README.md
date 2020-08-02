@@ -208,19 +208,16 @@ let insertAuthor connectionFactory fullName =
 ### Compose parameters out of tuple lists
 
 ```f#
-
 let explicitParams = [
     newParam "key" (SqlType.String "value")
     newParam "key2" (SqlType.String "value2")
 ]
 
+// Is equivalent to:
 let mappedParams = newParams [
     "key", SqlType.String "value"
     "key2", SqlType.String "value2"
 ]
-
-explicitParams |> should equal mappedParams
-
 ```
 
 
