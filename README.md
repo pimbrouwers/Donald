@@ -273,7 +273,7 @@ rd.GetBoolean "some_field"          // string -> bool
 rd.GetByte "some_field"             // string -> byte
 rd.GetChar "some_field"             // string -> char
 rd.GetDateTime "some_field"         // string -> DateTime
-rd.GetDateTimeOffset "some_field"   // string -> DateTime
+rd.GetDateTimeOffset "some_field"   // string -> DateTimeOffset
 rd.GetDecimal "some_field"          // string -> Decimal
 rd.GetDouble "some_field"           // string -> Double
 rd.GetFloat "some_field"            // string -> float32
@@ -288,7 +288,7 @@ rd.GetBooleanOption "some_field"        // string -> bool option
 rd.GetByteOption "some_field"           // string -> byte option
 rd.GetCharOption "some_field"           // string -> char option
 rd.GetDateTimeOption "some_field"       // string -> DateTime option
-rd.GetDateTimeOffsetOption "some_field" // string -> DateTime option
+rd.GetDateTimeOffsetOption "some_field" // string -> DateTimeOffset option
 rd.GetDecimalOption "some_field"        // string -> Decimal option
 rd.GetDoubleOption "some_field"         // string -> Double option
 rd.GetFloatOption "some_field"          // string -> float32 option
@@ -302,7 +302,7 @@ rd.GetNullableBoolean "some_field"        // string -> Nullable<bool>
 rd.GetNullableByte "some_field"           // string -> Nullable<byte>
 rd.GetNullableChar "some_field"           // string -> Nullable<char>
 rd.GetNullableDateTime "some_field"       // string -> Nullable<DateTime>
-rd.GetNullableDateTimeOffset "some_field" // string -> Nullable<DateTime>
+rd.GetNullableDateTimeOffset "some_field" // string -> Nullable<DateTimeOffset>
 rd.GetNullableDecimal "some_field"        // string -> Nullable<Decimal>
 rd.GetNullableDouble "some_field"         // string -> Nullable<Double>
 rd.GetNullableFloat "some_field"          // string -> Nullable<float32>
