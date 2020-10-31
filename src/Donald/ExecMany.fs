@@ -18,7 +18,7 @@ let tryTranExecMany (sql : string) (manyParam : DbParam list list) (tran : IDbTr
     try
         tranExecMany sql manyParam tran
         |> DbResult
-    with ex -> DbError ex
+    with :? DbException as ex -> DbError ex
 
 /// Execute query async with no results many times within transction scope
 let tranExecManyAsync (sql : string) (manyParam : DbParam list list) (tran : IDbTransaction) =    
@@ -38,7 +38,7 @@ let tryExecManyAsync (sql : string) (manyParam : DbParam list list) (conn : IDbC
             do! tranExecManyAsync sql manyParam tran
             commitTran tran
             return DbResult ()
-        with ex -> return DbError ex
+        with :? DbException as ex -> return DbError ex
     }
         
 /// Execute a query with no results many times
@@ -54,7 +54,7 @@ let tryExecMany (sql : string) (manyParam : DbParam list list) (conn : IDbConnec
         tranExecMany sql manyParam tran
         commitTran tran
         DbResult ()
-    with ex -> DbError ex
+    with :? DbException as ex -> DbError ex
 
 /// Execute a query async with no results many times
 let execManyAsync (sql : string) (manyParam : DbParam list list) (conn : IDbConnection) =
@@ -70,5 +70,5 @@ let tryTranExecManyAsync (sql : string) (manyParam : DbParam list list) (tran : 
         try
             do! tranExecManyAsync sql manyParam tran
             return DbResult ()
-        with ex -> return DbError ex
+        with :? DbException as ex -> return DbError ex
     }

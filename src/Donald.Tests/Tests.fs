@@ -71,9 +71,7 @@ module IntegrationTests =
     type Core() =
         [<Fact>]
         member __.``Can create connection`` () =
-            use conn = createConn connectionFactory
-            
-            conn.State            |> should equal ConnectionState.Closed
+            use conn = createConn connectionFactory            
             conn.ConnectionString |> should equal connectionString
 
         [<Fact>]

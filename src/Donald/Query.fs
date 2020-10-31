@@ -18,7 +18,7 @@ let tryTranQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a)
     try
         tranQuery sql param map tran
         |> DbResult 
-    with ex -> DbError ex
+    with :? DbException as ex -> DbError ex
 
 /// Query async for multiple results within transaction scope
 let tranQueryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (tran : IDbTransaction) =
@@ -48,7 +48,7 @@ let tryTranQueryAsync (sql : string) (param : DbParam list) (map : IDataReader -
         try
             let! result = tranQueryAsync sql param map tran
             return DbResult result
-        with ex -> return DbError ex
+        with :? DbException as ex -> return DbError ex
     }
 
 /// Query for multiple results
@@ -65,7 +65,7 @@ let tryQuery (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (co
         let results = tranQuery sql param map tran
         commitTran tran
         DbResult results
-    with ex -> DbError ex
+    with :? DbException as ex -> DbError ex
     
 /// Query async for multiple results
 let queryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a) (conn : IDbConnection) =
@@ -84,5 +84,5 @@ let tryQueryAsync (sql : string) (param : DbParam list) (map : IDataReader -> 'a
             let! results = tranQueryAsync sql param map tran
             commitTran tran
             return DbResult results
-        with ex -> return DbError ex
+        with :? DbException as ex -> return DbError ex
     }

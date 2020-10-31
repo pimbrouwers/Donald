@@ -15,7 +15,7 @@ let tryTranScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (t
     try
         tranScalar sql param convert tran
         |> DbResult
-    with ex -> DbError ex
+    with :? DbException as ex -> DbError ex
 
 /// Execute query async that returns scalar result within transcation scope
 let tranScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (tran : IDbTransaction) =
@@ -31,7 +31,7 @@ let tryTranScalarAsync (sql : string) (param : DbParam list) (convert : obj -> '
         try
             let! result = tranScalarAsync sql param convert tran
             return DbResult result
-        with ex -> return DbError ex
+        with :? DbException as ex -> return DbError ex
     }
 
 /// Execute query with scalar result
@@ -49,7 +49,7 @@ let tryScalarAsync (sql : string) (param : DbParam list) (convert : obj -> 'a) (
             let! result = tranScalarAsync sql param convert tran
             commitTran tran
             return DbResult result
-        with ex -> return DbError ex
+        with :? DbException as ex -> return DbError ex
     }   
 
 /// Execute query async with scalar result
@@ -68,4 +68,4 @@ let tryScalar (sql : string) (param : DbParam list) (convert : obj -> 'a) (conn 
         let result = tranScalar sql param convert tran
         commitTran tran
         DbResult result
-    with ex -> DbError ex    
+    with :? DbException as ex -> DbError ex    
