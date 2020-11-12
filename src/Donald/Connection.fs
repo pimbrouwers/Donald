@@ -33,5 +33,3 @@ let commitTran (tran : IDbTransaction) =
         | _ -> 
             rollbackTran tran
             reraise()
-
-

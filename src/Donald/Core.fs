@@ -3,15 +3,14 @@ module Donald.Core
 
 open System
 open System.Data
+open System.Data.Common
 
 /// Represents the ability to create a new IDbConnection
 type DbConnectionFactory = unit -> IDbConnection
 
 /// Represents the result of an action against the database
 /// or, an encapsulation of the exception thrown
-type DbResult<'a> =
-    | DbResult of 'a    
-    | DbError  of Exception
+type DbResult<'a> = Result<'a, DbException>
 
 /// Represents the supported data types for database IO
 type SqlType =

@@ -210,8 +210,8 @@ module IntegrationTests =
             authorsResult |> should be instanceOfType<DbResult<Author list>>
             
             match authorsResult with
-            | DbResult authors -> authors.Length |> should equal 2
-            | _ -> "DbResult should not be DbError" |> should equal false
+            | Ok authors -> authors.Length |> should equal 2
+            | _ -> "Ok should not be DbError" |> should equal false
 
         [<Fact>]
         member __.``SELECT records async`` () =            
@@ -241,8 +241,8 @@ module IntegrationTests =
             authorsResult |> should be instanceOfType<DbResult<Author list>>
             
             match authorsResult with
-            | DbError ex -> ex |> should be instanceOfType<Exception>
-            | _ -> "DbResult should not be Ok" |> should equal false
+            | Error ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "Ok should not be Ok" |> should equal false
 
         [<Fact>]
         member __.``SELECT single record`` () =            
@@ -285,12 +285,12 @@ module IntegrationTests =
             authorResult |> should be instanceOfType<DbResult<Author option>>
             
             match authorResult with
-            | DbResult author ->                
+            | Ok author ->                
                 match author with 
                 | Some author -> 
                     author.AuthorId |> should equal 1
                 | None ->  "Author should not be None" |> should equal false
-            | _ -> "DbResult should not be DbError" |> should equal false
+            | _ -> "Ok should not be DbError" |> should equal false
 
         [<Fact>]
         member __.``SELECT single record should fail and create DbError`` () =            
@@ -306,8 +306,8 @@ module IntegrationTests =
             authorResult |> should be instanceOfType<DbResult<Author option>>
             
             match authorResult with
-            | DbError ex -> ex |> should be instanceOfType<Exception>
-            | _ -> "DbResult should not be Ok" |> should equal false
+            | Error ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "Ok should not be Ok" |> should equal false
             
         [<Fact>]
         member __.``SELECT single record async`` () =            
@@ -368,8 +368,8 @@ module IntegrationTests =
                     conn 
 
             match result with 
-            | DbResult _ -> ()
-            | DbError ex -> ex.Message |> should equal false
+            | Ok _ -> ()
+            | Error ex -> ex.Message |> should equal false
 
         [<Fact>]
         member __.``INSERT author should fail and create DbError`` () =
@@ -383,8 +383,8 @@ module IntegrationTests =
             authorInsertResult |> should be instanceOfType<DbResult<unit>>
             
             match authorInsertResult with
-            | DbError ex -> ex |> should be instanceOfType<Exception>
-            | _ -> "DbResult should not be Ok" |> should equal false
+            | Error ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "Ok should not be Ok" |> should equal false
 
         [<Fact>]
         member __.``INSERT async author then retrieve to verify`` () =
@@ -453,8 +453,8 @@ module IntegrationTests =
             authorsResult |> should be instanceOfType<DbResult<unit>>
 
             match authorsResult with
-            | DbError ex -> ex |> should be instanceOfType<Exception>
-            | _ -> "DbResult should not be Ok" |> should equal false
+            | Error ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "Ok should not be Ok" |> should equal false
 
         [<Fact>]
         member __.``UPDATE author then retrieve to verify`` () =
@@ -501,8 +501,8 @@ module IntegrationTests =
             authorResult |> should be instanceOfType<DbResult<unit>>
                 
             match authorResult with
-            | DbError ex -> ex |> should be instanceOfType<Exception>
-            | _ -> "DbResult should not be Ok" |> should equal false
+            | Error ex -> ex |> should be instanceOfType<Exception>
+            | _ -> "Ok should not be Ok" |> should equal false
 
         [<Fact>]
         member __.``UPDATE async author then retrieve to verify`` () =

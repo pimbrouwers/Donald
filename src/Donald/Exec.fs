@@ -21,8 +21,8 @@ let tryTranExec
     (tran : IDbTransaction) : DbResult<unit> =
     try
         tranExec sql param tran
-        |> DbResult
-    with :? DbException as ex -> DbError ex
+        |> Ok
+    with :? DbException as ex -> Error ex
 
 /// Execute async query with no results within transction scope
 let tranExecAsync 
@@ -43,8 +43,8 @@ let tryTranExecAsync
     task {
         try
             do! tranExecAsync sql param tran 
-            return DbResult ()
-        with :? DbException as ex -> return DbError ex
+            return Ok ()
+        with :? DbException as ex -> return Error ex
     }
 
 /// Execute query with no results
@@ -65,8 +65,8 @@ let tryExec
         use tran = beginTran conn
         tranExec sql param tran 
         commitTran tran
-        DbResult ()
-    with :? DbException as ex -> DbError ex
+        Ok ()
+    with :? DbException as ex -> Error ex
 
 /// Execute async query with no results
 let execAsync 
@@ -90,6 +90,6 @@ let tryExecAsync
             use tran = beginTran conn
             do! tranExecAsync sql param tran 
             commitTran tran
-            return DbResult ()
-        with :? DbException as ex -> return DbError ex
+            return Ok ()
+        with :? DbException as ex -> return Error ex
     }
