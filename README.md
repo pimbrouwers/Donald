@@ -228,9 +228,7 @@ There are times when the database engine will error. For example, when receiving
 To make this actuality more explicit, forcing the consumer to handle the possibility of failure, all 10 statement functions have a "try" implementation. These encapsulate not only the result, but also the success or failure of the operation using the following type:
 
 ```f#
-type DbResult<'a> =
-    | DbResult of 'a    
-    | DbError  of Exception
+type DbResult<'a> = Result<'a, DbException>
 ```
 
 To illustrate dealing with this new type, consider these examples:
@@ -249,13 +247,9 @@ let tryFindAuthors connectionFactory search =
         conn
 
 // Consuming the database call elsewhere in the code
-let result = "Doe" |> (connectionFactory |> tryFindAuthors)
-match result with
-| DbError ex -> 
-    if isNull ex.InnerException then ex.Message 
-    else ex.InnerException.Message
-    |> Error
-| DbResult authors -> // Do something meaningful wuth authors ...
+"Doe" 
+|> (connectionFactory |> tryFindAuthors)
+|> Result.mapError (fun ex -> Error ex.Message) // Extract message `string` from DbException
 ```
 
 ## `IDataReader` Extension Methods
