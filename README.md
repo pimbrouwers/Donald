@@ -51,7 +51,7 @@ type Author =
     {
         FullName : string
     }
-    
+
 use conn = new SQLiteConnection("{your connection string}")
 
 let authors : DbResult<Author list> =
@@ -177,6 +177,14 @@ dbCommand conn {
 
 tran.Commit()
 ```
+
+## Execution Model
+
+The functionality in Donald is split into two execution models, transactional (`DbTran`) and non-transactional (`DbConn`). 
+
+`DbTran` assumes the provided `IDbCommand` has been assigned an `IDbTransaction` and will simply perform the function requested, returning a `DbResult<'a>`.
+
+`DbConn` will automatically start & assign an `IDbTransaction` to the provided command and then perform the function requested, returning a `DbResult<'a>`. This is done to ensure that should a failure occur that any partially-completed work is properly undone. It also turns out that by specifying an explicit transaction at this level, we gain a small but measureable boost in performance (bonus!).
 
 ## Reading Values
 
