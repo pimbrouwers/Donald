@@ -28,8 +28,8 @@ type Author =
     }
     static member FromReader (rd : IDataReader) =
         {
-            AuthorId = rd.GetInt32OrDefault "author_id" -1
-            FullName = rd.GetStringOrDefault "full_name" ""
+            AuthorId = rd.ReadInt32 "author_id"
+            FullName = rd.ReadString "full_name"
         }
 
 type DbFixture () =
@@ -97,21 +97,21 @@ type Statements() =
 
         let map (rd : IDataReader) = 
             {|
-                p_null = rd.GetStringOption "p_null"
-                p_string = rd.GetStringOption "p_string"
-                p_ansi_string = rd.GetStringOption "p_ansi_string"
-                p_boolean = rd.GetBooleanOption "p_boolean"
-                p_byte = rd.GetByteOption "p_byte"
-                p_char = rd.GetCharOption "p_char"
-                p_ansi_char = rd.GetCharOption "p_ansi_char"
-                p_decimal = rd.GetDecimalOption "p_decimal"
-                p_double = rd.GetDoubleOption "p_double"
-                p_float = rd.GetFloatOption "p_float"
-                p_guid = rd.GetGuidOption "p_guid"
-                p_int16 = rd.GetInt16Option "p_int16"
-                p_int32 = rd.GetInt32Option "p_int32"
-                p_int64 = rd.GetInt64Option "p_int64"
-                p_date_time = rd.GetDateTimeOption "p_date_time" 
+                p_null = rd.ReadStringOption "p_null"
+                p_string = rd.ReadStringOption "p_string"
+                p_ansi_string = rd.ReadStringOption "p_ansi_string"
+                p_boolean = rd.ReadBooleanOption "p_boolean"
+                p_byte = rd.ReadByteOption "p_byte"
+                p_char = rd.ReadCharOption "p_char"
+                p_ansi_char = rd.ReadCharOption "p_ansi_char"
+                p_decimal = rd.ReadDecimalOption "p_decimal"
+                p_double = rd.ReadDoubleOption "p_double"
+                p_float = rd.ReadFloatOption "p_float"
+                p_guid = rd.ReadGuidOption "p_guid"
+                p_int16 = rd.ReadInt16Option "p_int16"
+                p_int32 = rd.ReadInt32Option "p_int32"
+                p_int64 = rd.ReadInt64Option "p_int64"
+                p_date_time = rd.ReadDateTimeOption "p_date_time" 
             |}
 
         dbCommand conn {
@@ -172,8 +172,8 @@ type Statements() =
         }
         |> DbConn.querySingle (fun rd -> 
             {| 
-                FullName = rd.GetStringOrDefault "full_name" null
-                Age = rd.GetNullableInt32 "age"
+                FullName = rd.ReadString "full_name"
+                Age = rd.ReadInt32Option "age" |> Option.asNullable
             |})
         |> shouldNotBeError (fun result ->
             result.IsSome         |> should equal true
@@ -274,13 +274,13 @@ type Statements() =
     member __.``INSERT+SELECT binary should work`` () =
         let testString = "A sample of bytes"
         let bytes = Text.Encoding.UTF8.GetBytes(testString)
-        let emptyBytes : byte[] = Array.zeroCreate 0
+        
         dbCommand conn {
             cmdText "INSERT INTO file (data) VALUES (@data);
                      SELECT data FROM file WHERE file_id = LAST_INSERT_ROWID();"
             cmdParam [ "data", SqlType.Bytes bytes ]
         }
-        |> DbConn.querySingle (fun rd -> rd.GetBytesOrDefault "data" emptyBytes)
+        |> DbConn.querySingle (fun rd -> rd.ReadBytes "data")
         |> shouldNotBeError (fun result ->
             match result with
             | Some b -> 

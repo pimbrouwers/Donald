@@ -32,8 +32,8 @@ type CommandBuilder<'a>(conn : IDbConnection) =
         
         | None ->
             spec.Connection
-                   .NewCommand(spec.CommandType, spec.Statement)
-                   .SetDbParams(param)
+                .NewCommand(spec.CommandType, spec.Statement)
+                .SetDbParams(param)
 
     [<CustomOperation("cmdParam")>]
     member _.DbParams (spec : CommandSpec<'a>, param : RawDbParams) =
