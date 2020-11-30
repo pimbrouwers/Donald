@@ -70,7 +70,7 @@ let [<EntryPoint>] main _ =
 
 ## An Example using SQLite
 
-For this example, assume we have an `IDbConnection` named `connection`:
+For this example, assume we have an `IDbConnection` named `conn`:
 
 > Reminder: Donald will work with __any__ ADO implementation (SQL Server, SQLite, MySQL, Postgresql etc.).
 
@@ -98,13 +98,13 @@ module Author
 dbCommand conn {
     cmdText "SELECT author_id, full_name FROM author"
 }
-|> DbConn.query Author.fromDataReader
+|> DbConn.query Author.fromDataReader // DbResult<Author list>
 
 // Async
 dbCommand conn {
     cmdText "SELECT author_id, full_name FROM author"
 }
-|> DbConn.Async.query Author.fromDataReader
+|> DbConn.Async.query Author.fromDataReader // Task<DbResult<Author list>>
 ```
 
 ### Query for a single strongly-type result
