@@ -40,13 +40,13 @@
 
   <ItemGroup>
     <Compile Include="Core.fs" />
-    <Compile Include="DbConnection.fs" />
-    <Compile Include="DbTransaction.fs" />
-    <Compile Include="DbCommand.fs" />
+    <Compile Include="Connection.fs" />
+    <Compile Include="Transaction.fs" />
+    <Compile Include="Command.fs" />
     <Compile Include="DataReader.fs" />
-    <Compile Include="CommandBuilder.fs" />
     <Compile Include="DbTran.fs" />
     <Compile Include="DbConn.fs" />
+    <Compile Include="CommandBuilder.fs" />
   </ItemGroup>
 
 </Project>
