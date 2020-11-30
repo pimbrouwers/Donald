@@ -51,21 +51,18 @@ type Author =
     {
         FullName : string
     }
+    
+use conn = new SQLiteConnection("{your connection string}")
 
-let [<EntryPoint>] main _ = 
-    let connectionString = "{your connection string}"
-    use conn = new SQLiteConnection(connectionString)
-
-    let authors = : DbResult<Author list>
-        dbCommand conn {
-            cmdText  "SELECT  author_id
-                            , full_name 
-                      FROM    author 
-                      WHERE   author_id = @author_id"
-            cmdParam  [ "author_id", SqlType.Int 1]
-        }
-        |> DbConn.query (fun rd -> { FullName = rd.ReadString "full_name" })
-    0
+let authors : DbResult<Author list> =
+    dbCommand conn {
+        cmdText  "SELECT  author_id
+                        , full_name 
+                  FROM    author 
+                  WHERE   author_id = @author_id"
+        cmdParam  [ "author_id", SqlType.Int 1]
+    }
+    |> DbConn.query (fun rd -> { FullName = rd.ReadString "full_name" })
 ```
 
 ## An Example using SQLite
@@ -84,7 +81,7 @@ type Author =
     }
     
 module Author
-    let fromDataReader (rd : IDataReader) = 
+    let fromDataReader (rd : IDataReader) : Author = 
           {
               // IDataReader extension method (see below)
               AuthorId = rd.ReadInt32 "author_id"
@@ -153,7 +150,7 @@ dbCommand conn {
 dbCommand conn {
    cmdType  "INSERT INTO author (full_name)" 
 }
-|> DbConn.exexMany [ "full_name", SqlType.String "John Doe"
+|> DbConn.execMany [ "full_name", SqlType.String "John Doe"
                      "full_name", SqlType.String "Jane Doe" ]
 
 // Async
