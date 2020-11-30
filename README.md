@@ -15,7 +15,7 @@ This library is named after him.
 
 Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO implementations.
 
-The library is delivered as a computation expression responsible for building `IDbCommand` instances, which is executed using one of two modules, `DbConn` and `DbTran`, aptly named for the relevant workflow being used. 
+The library is delivered as a [computation expression](#command-builder) responsible for building `IDbCommand` instances, which is executed using one of [two modules](#execution-model), `DbConn` and `DbTran`, aptly named for the relevant workflow being used. 
 
 Two sets of type [extensions](#reading-values) for `IDataReader` are included to make manual object mapping a lot easier.
 
@@ -178,9 +178,18 @@ dbCommand conn {
 tran.Commit()
 ```
 
+## Command Builder
+
+At the core of Donald is a computation expression for building `IDbCommand` instances. It exposes four modification points:
+
+1. `cmdText` - SQL statement you intend to execute (default: `String.empty`).
+2. `cmdParam` - Input parameters for your statement (default: `[]`). 
+3. `cmdType` - Type of command you want to execute (default: `CommandType.Text`) 
+4. `cmdTran` - Transaction to assign to command.
+
 ## Execution Model
 
-The functionality in Donald is split into two execution models, transactional (`DbTran`) and non-transactional (`DbConn`). 
+The functionality in Donald is split into two execution models, transactional (`DbTran`) and non-transactional (`DbConn`), which operate against the provided `IDbCommand`. 
 
 `DbTran` assumes the provided `IDbCommand` has been assigned an `IDbTransaction` and will simply perform the function requested, returning a `DbResult<'a>`.
 
