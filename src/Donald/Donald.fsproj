@@ -40,14 +40,10 @@
 
   <ItemGroup>
     <Compile Include="Core.fs" />
-    <Compile Include="Connection.fs" />
-    <Compile Include="Command.fs" />
     <Compile Include="DataReader.fs" />
-    <Compile Include="Exec.fs" />
-    <Compile Include="ExecMany.fs" />
-    <Compile Include="Scalar.fs" />
-    <Compile Include="Query.fs" />
-    <Compile Include="QuerySingle.fs" />
+    <Compile Include="CommandBuilder.fs" />
+    <Compile Include="DbTran.fs" />
+    <Compile Include="DbConn.fs" />
   </ItemGroup>
 
 </Project>
