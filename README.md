@@ -11,7 +11,7 @@ This library is named after him.
 
 > Honorable mention goes to [@dysme](https://github.com/dsyme) another important Donald and F#'s [BDFL](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life).
 
-## Features
+## Key Features
 
 Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. It is an entirely generic abstraction, and will work with all ADO implementations.
 
@@ -40,13 +40,42 @@ Or using the dotnet CLI
 dotnet add package Donald
 ```
 
-## An example using SQL Server
+### Quick Start
+
+```fsharp
+open Donald
+
+type Author = 
+    {
+        FullName : string
+    }
+
+let [<EntryPoint>] main _ = 
+    let connectionString = "{your connection string}"
+    use conn = new SQLiteConnection(connectionString)
+
+    let authors = : DbResult<Author list>
+        dbCommand conn {
+            cmdText  "SELECT  author_id
+                            , full_name 
+                      FROM    author 
+                      WHERE   author_id = @author_id"
+            cmdParam  [ "author_id", SqlType.Int 1]
+        }
+        |> DbConn.query (fun rd -> 
+            { FullName = rd.ReadString "full_name" })
+    0
+```
+
+## An Example using SQLite
+
+For this example, assume we have an `IDbConnection` named `connection`:
 
 > Reminder: Donald will work with __any__ ADO implementation (SQL Server, SQLite, MySQL, Postgresql etc.).
 
 Consider the following model:
 
-```f#
+```fsharp
 type Author = 
     {
         AuthorId : int
@@ -57,253 +86,140 @@ module Author
     let fromDataReader (rd : IDataReader) = 
           {
               // IDataReader extension method (see below)
-              AuthorId = rd.GetInt32("author_id")  
-              FullName = rd.GetString("full_name")
+              AuthorId = rd.ReadInt32 "author_id"
+              FullName = rd.ReadString "full_name"
           }
-```
-
-### Define a `DbConnectionFactory`
-```f#
-open System.Data.SqlClient
-open Donald
-
-let connectionString = 
-    "Server=MY_SERVER;Database=MyDatabase;Trusted_Connection=True;"
-
-let connectionFactory : DbConnectionFactory = 
-    fun _ -> new SqlConnection(connectionString) :> IDbConnection
 ```
 
 ### Query for multiple strongly-typed results
 
-```f#
-let findAuthors connectionFactory search =
-    use conn = createConn connectionFactory
+```fsharp
+dbCommand conn {
+    cmdText "SELECT author_id, full_name FROM author"
+}
+|> DbConn.query Author.fromDataReader
 
-    query
-         "SELECT author_id, full_name
-          FROM   author
-          WHERE  full_name LIKE @search"
-          [ newParam "search" (SqlType.String search) ]
-          Author.fromDataReader
-          conn
+// Async
+dbCommand conn {
+    cmdText "SELECT author_id, full_name FROM author"
+}
+|> DbConn.Async.query Author.fromDataReader
 ```
 
-Or async:
+### Query for a single strongly-type result
 
-```f#
-let findAuthors connectionFactory search =
-    task {
-        use conn = createConn connectionFactory
+```fsharp
+dbCommand conn {
+    cmdText  "SELECT  author_id
+                    , full_name 
+              FROM    author 
+              WHERE   author_id = @author_id"
+    cmdParam  [ "author_id", SqlType.Int 1]
+} 
+|> DbConn.querySingle Author.fromDataReader // DbResult<Author list>
 
-        return! 
-            queryAsync
-                "SELECT author_id, full_name
-                 FROM   author
-                 WHERE  full_name LIKE @search"
-                [ newParam "search" (SqlType.String search) ]
-                Author.fromDataReader
-                conn
-    }
+// Async
+dbCommand conn {
+    cmdText  "SELECT  author_id
+                    , full_name 
+              FROM    author 
+              WHERE   author_id = @author_id"
+    cmdParam  [ "author_id", SqlType.Int 1]
+} 
+|> DbConn.Async.querySingle Author.fromDataReader // Task<DbResult<Author list>>
 ```
-
-### Query for exactly one strongly-type result
-
-```f#
-let getAuthor connectionFactory authorId =
-    use conn = createConn connectionFactory
-
-    querySingle // Returns Option<Author>
-        "SELECT author_id, full_name
-         FROM   author
-         WHERE  author_id = @author_id"
-         [ newParam "author_id" (SqlType.Int authorId) ]
-         Author.fromDataReader 
-         conn
-```
-
-Or async:
-
-```f#
-let getAuthor connectionFactory authorId =
-    task {
-        use conn = createConn connectionFactory
-
-        return! 
-            querySingleAsync 
-                "SELECT author_id, full_name
-                 FROM   author
-                 WHERE  author_id = @author_id"
-                [ newParam "author_id" (SqlType.Int authorId) ]
-                Author.fromDataReader 
-                conn
-    }
-```
-
-### Doing work transactionally
-
-The five main API functions: `query`, `querySingle`, `scalar`, `exec` and `execMany`, all have transactional sister functions: `tranQuery`, `tranQuerySingle`, `tranScalar`, `tranExec` and `tranExecMany`. 
-
-As opposed to an `IDbConnection`, these functions expect an `IDbTransaction` as the final paramter.
 
 ### Execute a statement
 
-```f#
-let updateAuthor connectionFactory author =
-    use conn = createConn connectionFactory
-    use tran = beginTran conn 
+```fsharp
+dbCommand conn {
+    cmdType  "INSERT INTO author (full_name)"
+    cmdParam [ "full_name", SqlType.String "John Doe" ]
+}
+|> DbConn.exec // DbResult<unit>
 
-    tranExec // ExecuteNonQuery() within scope of transaction
-        "UPDATE author 
-         SET    full_name = @full_name 
-         WHERE  author_id = @author_id"
-         [ 
-             newParam "author_id" (SqlType.Int author.AuthorId)
-             newParam "full_name" (SqlType.String author.FullName)
-         ]
-         tran
-
-    commitTran tran // safely commit transaction
+// Async
+dbCommand conn {
+    cmdType  "INSERT INTO author (full_name)"
+    cmdParam [ "full_name", SqlType.String "John Doe" ]
+}
+|> DbConn.Async.exec // Task<DbResult<unit>>
 ```
 
 ### Execute a statement many times
 
-```f#
-let insertDefaultAuthors connectionFactory =
-    use conn = createConn connectionFactory
-    use tran = beginTran conn 
+```fsharp
+dbCommand conn {
+   cmdType  "INSERT INTO author (full_name)" 
+}
+|> DbConn.exexMany [ "full_name", SqlType.String "John Doe"
+                     "full_name", SqlType.String "Jane Doe" ]
 
-    tranExecMany
-        "INSERT INTO author (full_name) VALUES (@full_name);"                
-        [
-            [ newParam "full_name" (SqlType.String "Bugs Bunny") ]
-            [ newParam "full_name" (SqlType.String "Donald Duck") ]
-        ]                        
-        tran    
-  
-    commitTran tran
+// Async
+dbCommand conn {
+   cmdType  "INSERT INTO author (full_name)" 
+}
+|> DbConn.Async.execMany [ "full_name", SqlType.String "John Doe"
+                           "full_name", SqlType.String "Jane Doe" ]                           
 ```
 
+### Execute a statement within an explicit transaction
 
-### Execute a statement that returns a value
+> Note the use of the `DbTran` module instead of `DbConn`.
 
-```f#
-let insertAuthor connectionFactory fullName =
-    use conn = createConn connectionFactory
-    use tran = beginTran conn // Base function's are transaction-oriented
-    
-    let authorId = 
-        tranScalar // ExecuteScalar() within scope of transaction
-            "INSERT INTO author (full_name) VALUES (@full_name);
-             SELECT SCOPE_IDENTITY();"
-             [ newParam "full_name" (SqlType.String fullName) ]
-             Convert.ToInt32 // Any obj -> int function would do here
-       tran
+```fsharp
+use tran = conn.BeginTransaction()
 
-    commitTran tran
+dbCommand conn {
+    cmdType  "INSERT INTO author (full_name)"
+    cmdParam [ "full_name", SqlType.String "John Doe" ]
+    cmdTran  tran
+}
+|> DbTran.exec // DbResult<unit>
 
-    authorId 
-```
-
-### Compose parameters out of tuple lists
-
-```f#
-let explicitParams = [
-    newParam "key" (SqlType.String "value")
-    newParam "key2" (SqlType.String "value2")
-]
-
-// Is equivalent to:
-let mappedParams = newParams [
-    "key", SqlType.String "value"
-    "key2", SqlType.String "value2"
-]
-```
-
-
-## Handling Database Errors/Exceptions
-
-There are times when the database engine will error. For example, when receiving an invalid SQL statement, missing input variable etc. In these cases, you'll likely be rewarded with an `Exception`. Yay!
-
-To make this actuality more explicit, forcing the consumer to handle the possibility of failure, all 10 statement functions have a "try" implementation. These encapsulate not only the result, but also the success or failure of the operation using the following type:
-
-```f#
-type DbResult<'a> = Result<'a, DbException>
-```
-
-To illustrate dealing with this new type, consider these examples:
-
-```f#
-let tryFindAuthors connectionFactory search =
-  use conn = createConn connectionFactory
-
-  // "try" functions are available for all statement types
-  tryQuery
-       "SELECT author_id, full_name
-        FROM   author
-        WHERE  full_name LIKE @search"
-        [ newParam "search" (SqlType.String search) ]
-        Author.fromDataReader
-        conn
-
-// Consuming the database call elsewhere in the code
-"Doe" 
-|> (connectionFactory |> tryFindAuthors)
-|> Result.mapError (fun ex -> Error ex.Message) // Extract message `string` from DbException
+tran.Commit()
 ```
 
 ## `IDataReader` Extension Methods
 
-To make obtaining values from reader more straight-forward, 3 sets of extension methods are available for:
+To make obtaining values from reader more straight-forward, 2 sets of extension methods are available for:
 1. Get value, automatically defaulted
 2. Get value as `option<'a>`
-3. Get value as `Nullable<'a>`
 
-Assume we have an active `IDataReader` called `rd` and are currently reading a row, the following extension methods are available to simplify reading values:
+> If you need an explicit `Nullable<'a>` you can use `Option.asNullable`.
 
-```f#
-rd.GetString "some_field"           // string -> string
-rd.GetBoolean "some_field"          // string -> bool
-rd.GetByte "some_field"             // string -> byte
-rd.GetChar "some_field"             // string -> char
-rd.GetDateTime "some_field"         // string -> DateTime
-rd.GetDateTimeOffset "some_field"   // string -> DateTimeOffset
-rd.GetDecimal "some_field"          // string -> Decimal
-rd.GetDouble "some_field"           // string -> Double
-rd.GetFloat "some_field"            // string -> float32
-rd.GetGuid "some_field"             // string -> Guid
-rd.GetInt16 "some_field"            // string -> int16
-rd.GetInt32 "some_field"            // string -> int32
-rd.GetInt64 "some_field"            // string -> int64
-rd.GetBytes "some_field"            // string -> byte[]
+Assuming we have an active `IDataReader` called `rd` and are currently reading a row, the following extension methods are available to simplify reading values:
 
-rd.GetStringOption "some_field"         // string -> string option
-rd.GetBooleanOption "some_field"        // string -> bool option
-rd.GetByteOption "some_field"           // string -> byte option
-rd.GetCharOption "some_field"           // string -> char option
-rd.GetDateTimeOption "some_field"       // string -> DateTime option
-rd.GetDateTimeOffsetOption "some_field" // string -> DateTimeOffset option
-rd.GetDecimalOption "some_field"        // string -> Decimal option
-rd.GetDoubleOption "some_field"         // string -> Double option
-rd.GetFloatOption "some_field"          // string -> float32 option
-rd.GetGuidOption "some_field"           // string -> Guid option
-rd.GetInt16Option "some_field"          // string -> int16 option
-rd.GetInt32Option "some_field"          // string -> int32 option
-rd.GetInt64Option "some_field"          // string -> int64 option
-rd.GetBytesOption "some_field"          // string -> byte[] option
+```fsharp
+rd.ReadString "some_field"           // string -> string
+rd.ReadBoolean "some_field"          // string -> bool
+rd.ReadByte "some_field"             // string -> byte
+rd.ReadChar "some_field"             // string -> char
+rd.ReadDateTime "some_field"         // string -> DateTime
+rd.ReadDateTimeOffset "some_field"   // string -> DateTimeOffset
+rd.ReadDecimal "some_field"          // string -> Decimal
+rd.ReadDouble "some_field"           // string -> Double
+rd.ReadFloat "some_field"            // string -> float32
+rd.ReadGuid "some_field"             // string -> Guid
+rd.ReadInt16 "some_field"            // string -> int16
+rd.ReadInt32 "some_field"            // string -> int32
+rd.ReadInt64 "some_field"            // string -> int64
+rd.ReadBytes "some_field"            // string -> byte[]
 
-rd.GetNullableBoolean "some_field"        // string -> Nullable<bool>
-rd.GetNullableByte "some_field"           // string -> Nullable<byte>
-rd.GetNullableChar "some_field"           // string -> Nullable<char>
-rd.GetNullableDateTime "some_field"       // string -> Nullable<DateTime>
-rd.GetNullableDateTimeOffset "some_field" // string -> Nullable<DateTimeOffset>
-rd.GetNullableDecimal "some_field"        // string -> Nullable<Decimal>
-rd.GetNullableDouble "some_field"         // string -> Nullable<Double>
-rd.GetNullableFloat "some_field"          // string -> Nullable<float32>
-rd.GetNullableGuid "some_field"           // string -> Nullable<Guid>
-rd.GetNullableInt16 "some_field"          // string -> Nullable<int16>
-rd.GetNullableInt32 "some_field"          // string -> Nullable<int32>
-rd.GetNullableInt64 "some_field"          // string -> Nullable<int64>
+rd.ReadStringOption "some_field"         // string -> string option
+rd.ReadBooleanOption "some_field"        // string -> bool option
+rd.ReadByteOption "some_field"           // string -> byte option
+rd.ReadCharOption "some_field"           // string -> char option
+rd.ReadDateTimeOption "some_field"       // string -> DateTime option
+rd.ReadDateTimeOffsetOption "some_field" // string -> DateTimeOffset option
+rd.ReadDecimalOption "some_field"        // string -> Decimal option
+rd.ReadDoubleOption "some_field"         // string -> Double option
+rd.ReadFloatOption "some_field"          // string -> float32 option
+rd.ReadGuidOption "some_field"           // string -> Guid option
+rd.ReadInt16Option "some_field"          // string -> int16 option
+rd.ReadInt32Option "some_field"          // string -> int32 option
+rd.ReadInt64Option "some_field"          // string -> int64 option
+rd.ReadBytesOption "some_field"          // string -> byte[] option
 ```
 
 ## Find a bug?
