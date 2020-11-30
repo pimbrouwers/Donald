@@ -1,127 +1,121 @@
 ﻿[<AutoOpen>]
-module Donald.DbCommand
+module Donald.Command 
 
 open System
 open System.Data
+open System.Data.Common
+open System.Threading.Tasks
+open FSharp.Control.Tasks.V2.ContextInsensitive
 
-/// Assign DbParam to IDbCommand
-let assignDbParams (cmd : IDbCommand) (dbParams : DbParam list) =
-    let setParamValue (p : IDbDataParameter) (v : obj) =
-        if v = null then p.Value <- DBNull.Value
-        else p.Value <- v
+type IDbCommand with
+    member internal this.SetDbParams(dbParams : DbParams) =
+        let setParamValue (p : IDbDataParameter) (v : obj) =
+            if v = null then p.Value <- DBNull.Value
+            else p.Value <- v
 
-    dbParams
-    |> Seq.iter (fun param ->
-        let p = cmd.CreateParameter()        
-        p.ParameterName <- param.Name
-        
-        match param.Value with
-        | Null -> 
-            p.Value <- DBNull.Value
+        this.Parameters.Clear() // clear to ensure a clean working set
 
-        | String v -> 
-            p.DbType <- DbType.String
-            setParamValue p v
-
-        | AnsiString v ->
-            p.DbType <- DbType.AnsiString
-            setParamValue p v
-
-        | Boolean v -> 
-            p.DbType <- DbType.Boolean
-            setParamValue p v
-
-        | Byte v -> 
-            p.DbType <- DbType.Byte
-            setParamValue p v
-
-        | Char v -> 
-            p.DbType <- DbType.AnsiString
-            setParamValue p v
-
-        | AnsiChar v ->
-            p.DbType <- DbType.String
-            setParamValue p v
-
-        | Decimal v -> 
-            p.DbType <- DbType.Decimal
-            setParamValue p v
-
-        | Double v
-        | Float v ->
-            p.DbType <- DbType.Double
-            setParamValue p v 
-
-        | Int16 v -> 
-            p.DbType <- DbType.Int16
-            setParamValue p v
-
-        | Int32 v 
-        | Int v -> 
-            p.DbType <- DbType.Int32
-            setParamValue p v
-
-        | Int64 v -> 
-            p.DbType <- DbType.Int64
-            setParamValue p v
+        for param in dbParams do
+            let p = this.CreateParameter()
+            p.ParameterName <- param.Name
             
-        | Guid v -> 
-            p.DbType <- DbType.Guid
-            setParamValue p v
+            match param.Value with
+            | Null -> 
+                p.Value <- DBNull.Value
 
-        | DateTime v -> 
-            p.DbType <- DbType.DateTime
-            setParamValue p v
+            | String v -> 
+                p.DbType <- DbType.String
+                setParamValue p v
 
-        | DateTimeOffset v ->
-            p.DbType <- DbType.DateTimeOffset
-            setParamValue p v
+            | AnsiString v ->
+                p.DbType <- DbType.AnsiString
+                setParamValue p v
 
-        | Bytes v -> 
-            p.DbType <- DbType.Binary
-            setParamValue p v
+            | Boolean v -> 
+                p.DbType <- DbType.Boolean
+                setParamValue p v
 
-        cmd.Parameters.Add(p) |> ignore)
+            | Byte v -> 
+                p.DbType <- DbType.Byte
+                setParamValue p v
 
-/// Clear all parameters from IDbCommand
-let clearParameters (cmd : IDbCommand) =
-    cmd.Parameters.Clear()
+            | Char v -> 
+                p.DbType <- DbType.AnsiString
+                setParamValue p v
 
-/// DbParam constructor
-let newParam (name : string) (value : SqlType) =
-    { Name = name; Value = value }
+            | AnsiChar v ->
+                p.DbType <- DbType.String
+                setParamValue p v
 
-/// Helper to convert a tuple list to DbParam list
-let newParams (lst : (string * SqlType) list) =
-    [ for k, v in lst -> newParam k v ]
-   
-/// Create a new IDbCommand  
-let newIDbCommand (commandType : CommandType) (sql : string) (tran : IDbTransaction) =
-    let cmd = tran.Connection.CreateCommand()
-    cmd.CommandType <- commandType
-    cmd.CommandText <- sql
-    cmd.Transaction <- tran
-    cmd 
+            | Decimal v -> 
+                p.DbType <- DbType.Decimal
+                setParamValue p v
 
-/// Create a new CommanType.Text IDbCommand  
-let newTextDbCommand (sql : string) (tran : IDbTransaction) =
-    newIDbCommand CommandType.Text sql tran
+            | Double v
+            | Float v ->
+                p.DbType <- DbType.Double
+                setParamValue p v 
 
-/// Create a new CommanType.StoredProcedure IDbCommand  
-let newSprocDbCommand (sprocName : string) (tran : IDbTransaction) =
-    newIDbCommand CommandType.StoredProcedure sprocName tran
+            | Int16 v -> 
+                p.DbType <- DbType.Int16
+                setParamValue p v
 
-/// Create a new CommandType.Text IDbCommand  
-let newCommand (sql : string) (dbParams : DbParam list) (tran : IDbTransaction) =
-    let cmd = newTextDbCommand sql tran
-    assignDbParams cmd dbParams
-    cmd
+            | Int32 v 
+            | Int v -> 
+                p.DbType <- DbType.Int32
+                setParamValue p v
 
-/// Create a new CommandType.Text IDbCommand  
-let newSproc (sprocName : string) (dbParams : DbParam list) (tran : IDbTransaction) =
-    let cmd = newSprocDbCommand sprocName tran
-    assignDbParams cmd dbParams
-    cmd
+            | Int64 v -> 
+                p.DbType <- DbType.Int64
+                setParamValue p v
+                
+            | Guid v -> 
+                p.DbType <- DbType.Guid
+                setParamValue p v
 
+            | DateTime v -> 
+                p.DbType <- DbType.DateTime
+                setParamValue p v
 
+            | DateTimeOffset v ->
+                p.DbType <- DbType.DateTimeOffset
+                setParamValue p v
+
+            | Bytes v -> 
+                p.DbType <- DbType.Binary
+                setParamValue p v
+
+            this.Parameters.Add(p)
+            |> ignore
+        this
+
+    member private this.TryDo (fn : IDbCommand -> 'a) : 'a =
+        try 
+            fn this
+        with
+        | :? DbException as ex -> raise (FailedExecutionError ({ Statement = this.CommandText; Error = ex }))
+
+    member internal this.Exec() =
+        this.TryDo (fun this -> this.ExecuteNonQuery() |> ignore)
+
+    member internal this.ExecReader() =
+        this.TryDo (fun this -> this.ExecuteReader())
+
+type DbCommand with
+    member private this.TryDoAsync (fn : DbCommand -> Task<'a>) : Task<'a> = task {
+        try 
+            return! fn this             
+        with
+        | :? DbException as ex -> 
+            return raise (FailedExecutionError ({ Statement = this.CommandText; Error = ex }))
+    }
+
+    member internal this.SetDbParams(param : DbParams) =
+        (this :> IDbCommand).SetDbParams(param) :?> DbCommand
+            
+    member internal this.ExecAsync() =
+        this.TryDoAsync (fun this -> this.ExecuteNonQueryAsync())
+
+    member internal this.ExecReaderAsync() =
+        this.TryDoAsync (fun this -> this.ExecuteReaderAsync())
 

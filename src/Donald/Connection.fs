@@ -1,35 +1,28 @@
 ﻿[<AutoOpen>]
-module Donald.Connection
+module Donald.Conection
 
-open System.Data
+open System.Data 
 
-/// Create new instance of IDbConnection using provided DbConnectionFactory
-let createConn (createConnection : DbConnectionFactory) =
-    createConnection ()    
-  
-/// Create a new IDbTransaction
-let beginTran (conn : IDbConnection) = 
-    if conn.State <> ConnectionState.Open then conn.Open()
-    conn.BeginTransaction()
+type IDbConnection with
+    member internal this.NewCommand(commandType : CommandType, sql : string) =
+        let cmd = this.CreateCommand()
+        cmd.CommandType <- commandType
+        cmd.CommandText <- sql
+        cmd
 
-/// Rollback IDbTransaction
-let rollbackTran (tran : IDbTransaction) =
-    try        
-        if not(isNull tran) 
-           && not(isNull tran.Connection) then tran.Rollback()
-    with            
-        | _ -> 
-            reraise() 
+    member internal this.TryOpenConnection()  =        
+        try
+            if this.State = ConnectionState.Closed then 
+                this.Open()             
+        with ex -> 
+            raise (CouldNotOpenConnectionError ex) 
 
-/// Attempt to commit IDbTransaction, rollback if failed.
-let commitTran (tran : IDbTransaction) =
-    try
-        if not(isNull tran) 
-           && not(isNull tran.Connection) then tran.Commit() 
-    with
-        /// Is supposed to throw System.InvalidOperationException
-        /// when commmited or rolled back already, but most
-        /// implementations do not. So in all cases try rolling back
-        | _ -> 
-            rollbackTran tran
-            reraise()
+    member internal this.TryBeginTransaction()  =        
+        try
+            this.TryOpenConnection()
+            this.BeginTransaction()
+        with 
+        | CouldNotOpenConnectionError ex -> reraise()
+        | ex -> raise (CouldNotBeginTransactionError ex)
+ 
+

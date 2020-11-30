@@ -2,16 +2,22 @@
 module Donald.Core
 
 open System
-open System.Data
 open System.Data.Common
 
-/// Represents the ability to create a new IDbConnection
-type DbConnectionFactory = unit -> IDbConnection
+type DbExecutionError = 
+    { Statement : string
+      Error     : DbException }
 
-/// Represents the result of an action against the database
-/// or, an encapsulation of the exception thrown
-type DbResult<'a> = Result<'a, DbException>
+type DbResult<'a> = Result<'a, DbExecutionError>
 
+exception ConnectionBusyError
+exception CouldNotOpenConnectionError of exn
+exception CouldNotBeginTransactionError of exn
+exception CouldNotCommitTransactionError of exn
+exception CouldNotRollbackTransactionError of exn
+exception FailedExecutionError of DbExecutionError
+
+  
 /// Represents the supported data types for database IO
 type SqlType =
     | Null       
@@ -40,3 +46,17 @@ type DbParam =
         Name : String
         Value : SqlType
     }
+
+module DbParam = 
+    let create (name : string) (value : SqlType) =
+        { Name = name; Value = value }
+
+/// Type abbreviation for (string * SqlType) list
+type RawDbParams = (string * SqlType) list
+
+/// Type abbreviation for DbParam list
+type DbParams = DbParam list
+
+module DbParams =
+    let create (lst : RawDbParams) =
+        [ for k, v in lst -> DbParam.create k v ]

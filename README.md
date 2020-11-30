@@ -13,7 +13,7 @@ This library is named after him.
 
 ## Features
 
-Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. It is an entirely generic abstraction, and will work with all ADO implementations.
+Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. It is an entirely generic abstraction, and will work with all ADO implementations.
 
 Functional wrappers are available for all the `IDbCommand` methods: `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and a full-suite of `IDataReader` extension methods to make retrieving values safer and more direct.
 
@@ -21,11 +21,11 @@ Functional wrappers are available for all the `IDbCommand` methods: `ExecuteNonQ
 
 Key features:
 
-- Generic, supports all ADO implementations
-- A natural DSL for interacting with databases
-- Full async support
-- Opt-in explicit error flow control
-- `IDataReader` extensions to facilitate mapping
+- Generic, supports all ADO implementations.
+- A natural DSL for interacting with databases.
+- Full async support.
+- Explicit error flow control.
+- `IDataReader` extensions to make mapping easier.
 
 ## Getting Started
 

@@ -20,7 +20,7 @@
 
     <!-- NuGet config -->
     <PackageId>Donald</PackageId>
-    <PackageVersion>4.0.0</PackageVersion>
+    <PackageVersion>5.0.0-alpha1</PackageVersion>
     <PackageTags>fsharp;functional;database;sql;ado;adonet</PackageTags>        
     <PackageProjectUrl>https://github.com/pimbrouwers/Donald</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -41,13 +41,12 @@
   <ItemGroup>
     <Compile Include="Core.fs" />
     <Compile Include="Connection.fs" />
+    <Compile Include="Transaction.fs" />
     <Compile Include="Command.fs" />
     <Compile Include="DataReader.fs" />
-    <Compile Include="Exec.fs" />
-    <Compile Include="ExecMany.fs" />
-    <Compile Include="Scalar.fs" />
-    <Compile Include="Query.fs" />
-    <Compile Include="QuerySingle.fs" />
+    <Compile Include="DbTran.fs" />
+    <Compile Include="DbConn.fs" />
+    <Compile Include="CommandBuilder.fs" />
   </ItemGroup>
 
 </Project>
