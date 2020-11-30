@@ -13,17 +13,15 @@ let private tryDo (fn : IDbCommand -> 'a) (cmd : IDbCommand) : DbResult<'a> =
 let exec (cmd : IDbCommand) : DbResult<unit> =
     tryDo (fun cmd -> cmd.Exec()) cmd
 
-let execMany (param : DbParams list) (cmd : IDbCommand) : DbResult<unit> =    
+let execMany (param : RawDbParams list) (cmd : IDbCommand) : DbResult<unit> =    
     try 
         for p in param do
-            cmd.SetDbParams(p).Exec() |> ignore
+            let dbParams = DbParams.create p
+            cmd.SetDbParams(dbParams).Exec() |> ignore
 
         Ok ()
     with 
     | FailedExecutionError e -> Error e
-    
-let scalar (cmd : IDbCommand) : DbResult<obj> =
-    tryDo (fun cmd -> cmd.ExecScalar()) cmd
 
 let query (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a list> =   
     tryDo 
@@ -56,21 +54,14 @@ module Async =
         | FailedExecutionError e -> return Error e
     }
 
-    let execMany (param : DbParams list) (cmd : DbCommand) : Task<DbResult<unit>> = task {        
+    let execMany (param : RawDbParams list) (cmd : DbCommand) : Task<DbResult<unit>> = task {        
         try 
             for p in param do
-                let! _ = cmd.SetDbParams(p).ExecAsync()            
+                let dbParams = DbParams.create p
+                let! _ = cmd.SetDbParams(dbParams).ExecAsync()            
                 ()
 
             return Ok ()
-        with 
-        | FailedExecutionError e -> return Error e
-    }
-
-    let scalar (cmd : DbCommand) : Task<DbResult<obj>> = task {        
-        try
-            let! result = cmd.ExecScalarAsync()
-            return Ok result
         with 
         | FailedExecutionError e -> return Error e
     }

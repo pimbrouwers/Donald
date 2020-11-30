@@ -14,11 +14,8 @@ let private tryTransact (fn : IDbCommand -> DbResult<'a>) (cmd : IDbCommand) =
 let exec (cmd : IDbCommand) : DbResult<unit> =
     tryTransact (DbTran.exec) cmd
 
-let execMany (param : DbParams list) (cmd : IDbCommand) : DbResult<unit> =
+let execMany (param : RawDbParams list) (cmd : IDbCommand) : DbResult<unit> =
     tryTransact (DbTran.execMany param) cmd
-
-let scalar (cmd : IDbCommand) : DbResult<obj> =
-    tryTransact (DbTran.scalar) cmd
 
 let query (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a list> =    
     tryTransact (DbTran.query map) cmd
@@ -43,11 +40,8 @@ module Async =
     let exec (cmd : IDbCommand) : Task<DbResult<unit>> = 
         tryTransactAsync (DbTran.Async.exec) cmd
 
-    let execMany (param : DbParams list) (cmd : IDbCommand) : Task<DbResult<unit>> =
+    let execMany (param : RawDbParams list) (cmd : IDbCommand) : Task<DbResult<unit>> =
         tryTransactAsync (DbTran.Async.execMany param) cmd
-
-    let scalar (cmd : IDbCommand) : Task<DbResult<obj>> = 
-        tryTransactAsync (DbTran.Async.scalar) cmd
 
     let query (map : IDataReader -> 'a) (cmd : IDbCommand) : Task<DbResult<'a list>> =
         tryTransactAsync (DbTran.Async.query map) cmd

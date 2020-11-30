@@ -2,7 +2,6 @@ module Donald.Tests
 
 open System
 open System.Data
-open System.Data.Common
 open System.Data.SQLite
 open System.IO
 open Xunit
@@ -15,7 +14,7 @@ let conn = new SQLiteConnection(connectionString)
 let shouldNotBeError pred (result : DbResult<'a>) =    
     match result with
     | Ok result' -> pred result'
-    | _ -> "DbResult should not be Error" |> should equal false
+    | Error e -> sprintf "DbResult should not be Error: %s" e.Error.Message |> should equal false
 
 let shouldNotBeOk (result : DbResult<'a>) =    
     match result with
@@ -77,7 +76,7 @@ type Statements() =
             , @p_date_time_offset AS p_date_time_offset"
 
         let param = 
-            DbParams.create [
+            [
                 "p_null", SqlType.Null
                 "p_string", SqlType.String "p_string"
                 "p_ansi_string", SqlType.AnsiString "p_ansi_string"
@@ -154,286 +153,138 @@ type Statements() =
         |> DbConn.query Author.FromReader
         |> shouldNotBeOk
 
-    //[<Fact>]
-    //member __.``SELECT single record`` () =            
-    //    let author =
-    //        DbConn.querySingle
-    //            Author.FromReader
-    //            "SELECT author_id, full_name
-    //                FROM   author
-    //                WHERE  author_id = 1"
-    //            []
-    //            conn
-            
-    //    author.IsSome         |> should equal true
-    //    author.Value.AuthorId |> should equal 1
+    [<Fact>]
+    member __.``SELECT single record`` () =            
+        dbCommand conn {
+            cmdText "SELECT author_id, full_name
+                     FROM   author
+                     WHERE  author_id = 1"
+        }
+        |> DbConn.querySingle Author.FromReader
+        |> shouldNotBeError (fun result ->
+            result.IsSome         |> should equal true
+            result.Value.AuthorId |> should equal 1)
 
-    //[<Fact>]
-    //member __.``SELECT NULL`` () =            
-    //    let nullableAuthor =
-    //        DbConn.querySingle 
-    //            (fun rd -> 
-    //                {| 
-    //                    FullName = rd.GetStringOrDefault "full_name" null
-    //                    Age = rd.GetNullableInt32 "age"
-    //                |})
-    //            "SELECT NULL AS full_name, NULL AS age"
-    //            []
-    //            conn
-            
-    //    nullableAuthor.IsSome         |> should equal true
-    //    nullableAuthor.Value.FullName |> should equal null
-    //    nullableAuthor.Value.Age      |> should equal null
+    [<Fact>]
+    member __.``SELECT NULL`` () =            
+        dbCommand conn {
+            cmdText "SELECT NULL AS full_name, NULL AS age"
+        }
+        |> DbConn.querySingle (fun rd -> 
+            {| 
+                FullName = rd.GetStringOrDefault "full_name" null
+                Age = rd.GetNullableInt32 "age"
+            |})
+        |> shouldNotBeError (fun result ->
+            result.IsSome         |> should equal true
+            result.Value.FullName |> should equal null
+            result.Value.Age      |> should equal null)
       
-    //[<Fact>]
-    //member __.``SELECT single record async`` () =            
-    //    let author =
-    //        DbConn.Async.querySingle
-    //            Author.FromReader
-    //            "SELECT author_id, full_name
-    //                FROM   author
-    //                WHERE  author_id = 1"
-    //            []
-    //            conn
-    //        |> Async.AwaitTask
-    //        |> Async.RunSynchronously
+    [<Fact>]
+    member __.``SELECT single record async`` () =                    
+        dbCommand conn {
+            cmdText "SELECT author_id, full_name
+                        FROM   author
+                        WHERE  author_id = 1"
+        }
+        |> DbConn.Async.querySingle Author.FromReader
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> shouldNotBeError (fun result ->            
+            result.IsSome         |> should equal true
+            result.Value.AuthorId |> should equal 1)
             
-    //    author.IsSome         |> should equal true
-    //    author.Value.AuthorId |> should equal 1
-            
-    //[<Fact>]
-    //member __.``INSERT author then retrieve to verify`` () =
-    //    let fullName = "Jane Doe"
-    //    let authorId = 
-    //        DbConn.scalar                
-    //            "INSERT INTO author (full_name) VALUES (@full_name);
-    //                SELECT LAST_INSERT_ROWID();"
-    //            [ DbParam.create "full_name" (SqlType.String fullName)]
-    //            conn 
-    //        |> Convert.ToInt32
-
-    //    let author = 
-    //        DbConn.querySingle
-    //            Author.FromReader   
-    //            "SELECT author_id, full_name
-    //                FROM   author
-    //                WHERE  author_id = @author_id"
-    //            [ DbParam.create "author_id" (SqlType.Int authorId) ]
-    //            conn
-
-    //    author.IsSome |> should equal true
-
-    //    match author with
-    //    | Some author ->
-    //        author.FullName |> should equal fullName
-    //    | None -> 
-    //        ()
-
-    //[<Fact>]
-    //member __.``INSERT author with NULL birth_date`` () =
-    //    let fullName = "Jim Doe"
-    //    let birthDate : DateTime option = None
-
-    //    let result = 
-    //            tryExec
-    //            "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
-    //            [ 
-    //                DbParam.create "full_name" (SqlType.String fullName) 
-    //                DbParam.create "birth_date" (match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null) 
-    //            ]
-    //            conn 
-
-    //    match result with 
-    //    | Ok _ -> ()
-    //    | Error ex -> ex.Message |> should equal false
-
-    //[<Fact>]
-    //member __.``INSERT author should fail and create DbError`` () =
-    //    let fullName = "Jane Doe"
-    //    let authorInsertResult = 
-    //            tryExec
-    //            "INSERT INTO fake_author (full_name) VALUES (@full_nameaaaa);"
-    //            [ DbParam.create "full_name" (SqlType.String fullName)]                    
-    //            conn 
-
-    //    authorInsertResult |> should be instanceOfType<DbResult<unit>>
-            
-    //    match authorInsertResult with
-    //    | Error ex -> ex |> should be instanceOfType<Exception>
-    //    | _ -> "Ok should not be Ok" |> should equal false
-
-    //[<Fact>]
-    //member __.``INSERT async author then retrieve to verify`` () =
-    //    let fullName = "Janet Doe"
-    //    let authorId = 
-    //            scalarAsync
-    //            "INSERT INTO author (full_name) VALUES (@full_name);
-    //                SELECT LAST_INSERT_ROWID();"
-    //            [ DbParam.create "full_name" (SqlType.String fullName)]
-    //            Convert.ToInt32
-    //            conn 
-    //        |> Async.AwaitTask
-    //        |> Async.RunSynchronously
-
-    //    let author = 
-    //        querySingleAsync
-    //            "SELECT author_id, full_name
-    //                FROM   author
-    //                WHERE  author_id = @author_id"
-    //                [ DbParam.create "author_id" (SqlType.Int authorId) ]
-    //                Author.FromReader       
-    //                conn
-    //        |> Async.AwaitTask
-    //        |> Async.RunSynchronously
-
-    //    author.IsSome |> should equal true
-
-    //    match author with
-    //    | Some author ->
-    //        author.FullName |> should equal fullName
-    //    | None -> 
-    //        ()
-
-    //[<Fact>]
-    //member __.``INSERT MANY authors then count to verify`` () =
-    //    let initialCount = scalar "SELECT COUNT(author_id) FROM author" [] Convert.ToInt32 conn
-           
-    //    let authorParams = 
-    //        [
-    //            [ DbParam.create "full_name" (SqlType.String "Bugs Bunny") ]
-    //            [ DbParam.create "full_name" (SqlType.String "Donald Duck") ]
-    //        ]                
-    //    execMany
-    //        "INSERT INTO author (full_name) VALUES (@full_name);"                
-    //        authorParams
-    //        conn 
-            
-    //    let afterCount = scalar "SELECT COUNT(author_id) FROM author" [] Convert.ToInt32 conn
-            
-    //    initialCount + authorParams.Length |> should equal afterCount
-
-    //[<Fact>]
-    //member __.``INSERT MANY should fail and create DbError`` () =
-    //    let authorParams = 
-    //        [
-    //            [ DbParam.create "full_name" (SqlType.String "Bugs Bunny") ]
-    //            [ DbParam.create "full_name" (SqlType.String "Donald Duck") ]
-    //        ]   
-                
-    //    let authorsResult =
-    //        tryExecMany
-    //            "INSERT INTO fake_author (full_name) VALUES (@full_nadsame);"                
-    //            authorParams
-    //            conn 
-
-    //    authorsResult |> should be instanceOfType<DbResult<unit>>
-
-    //    match authorsResult with
-    //    | Error ex -> ex |> should be instanceOfType<Exception>
-    //    | _ -> "Ok should not be Ok" |> should equal false
-
-    //[<Fact>]
-    //member __.``UPDATE author then retrieve to verify`` () =
-    //    let authorId = 1
-    //    let fullName = "Jim Brouwers"
-    //    exec
-    //        "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
-    //        [ 
-    //            DbParam.create "author_id" (SqlType.Int authorId)
-    //            DbParam.create "full_name" (SqlType.String fullName)
-    //        ]
-    //        conn
-                
-    //    let author = 
-    //        querySingle
-    //            "SELECT author_id, full_name
-    //                FROM   author
-    //                WHERE  author_id = @author_id"
-    //                [ DbParam.create "author_id" (SqlType.Int authorId) ]
-    //                Author.FromReader            
-    //                conn 
-
-    //    author.IsSome |> should equal true
-
-    //    match author with
-    //    | Some author ->
-    //        author.FullName |> should equal fullName
-    //    | None -> 
-    //        ()
+    [<Fact>]
+    member __.``INSERT author then retrieve to verify`` () =
+        let fullName = "Jane Doe"
         
-    //[<Fact>]
-    //member __.``UPDATE should fail and create DbError`` () =
-    //    let authorId = 1
-    //    let fullName = "Jim Brouwers"
-    //    let authorResult =
-    //        tryExec
-    //            "UPDATE fake_author SET full_name = @full_name WHERE aauthor_id = @author_idda"
-    //            [ 
-    //                DbParam.create "author_id" (SqlType.Int authorId)
-    //                DbParam.create "full_name" (SqlType.String fullName)
-    //            ]
-    //            conn
+        dbCommand conn {
+            cmdText  "INSERT INTO author (full_name) VALUES (@full_name);
 
-    //    authorResult |> should be instanceOfType<DbResult<unit>>
-                
-    //    match authorResult with
-    //    | Error ex -> ex |> should be instanceOfType<Exception>
-    //    | _ -> "Ok should not be Ok" |> should equal false
+                      SELECT author_id, full_name
+                      FROM   author
+                      WHERE  author_id = LAST_INSERT_ROWID();"
+            cmdParam [ "full_name", SqlType.String fullName ]
+        }                 
+        |> DbConn.querySingle Author.FromReader               
+        |> shouldNotBeError (fun result ->  
+            result.IsSome |> should equal true
 
-    //[<Fact>]
-    //member __.``UPDATE async author then retrieve to verify`` () =
-    //    let authorId = 1
-    //    let fullName = "Jim Brouwers"
-    //    execAsync
-    //        "UPDATE author SET full_name = @full_name WHERE author_id = @author_id"
-    //        [ 
-    //            DbParam.create "author_id" (SqlType.Int authorId)
-    //            DbParam.create "full_name" (SqlType.String fullName)
-    //        ]
-    //        conn
-    //    |> Async.AwaitTask
-    //    |> Async.RunSynchronously
-                
-    //    let author = 
-    //        querySingleAsync
-    //            "SELECT author_id, full_name
-    //                FROM   author
-    //                WHERE  author_id = @author_id"
-    //                [ DbParam.create "author_id" (SqlType.Int authorId) ]
-    //                Author.FromReader            
-    //                conn 
-    //        |> Async.AwaitTask
-    //        |> Async.RunSynchronously
+            match result with
+            | Some author ->
+                author.FullName |> should equal fullName
+            | None -> 
+                ())   
 
-    //    author.IsSome |> should equal true
+    [<Fact>]
+    member __.``INSERT author with NULL birth_date`` () =
+        let fullName = "Jim Doe"
+        let birthDate : DateTime option = None
 
-    //    match author with
-    //    | Some author ->
-    //        author.FullName |> should equal fullName
-    //    | None -> 
-    //        ()
+        dbCommand conn {
+            cmdText  "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
+            cmdParam [ 
+                         "full_name", SqlType.String fullName
+                         "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null
+                     ]
+        }
+        |> DbConn.exec
+        |> shouldNotBeError (fun result -> ())
+
+    [<Fact>]
+    member __.``INSERT author should fail and create DbError`` () =
+        let fullName = "Jane Doe"
+        dbCommand conn {
+            cmdText  "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
+            cmdParam [ "full_name", SqlType.String fullName ]
+        }
+        |> DbConn.exec
+        |> shouldNotBeOk
+
+    [<Fact>]
+    member __.``INSERT MANY authors then count to verify`` () =
+        dbCommand conn {    
+            cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
+        }
+        |> DbConn.execMany [
+                               [ "full_name", SqlType.String "Bugs Bunny" ]
+                               [ "full_name", SqlType.String "Donald Duck" ]
+                           ]
+        |> ignore
+
+        dbCommand conn {
+            cmdText "SELECT author_id, full_name FROM author WHERE full_name IN ('Bugs Bunny', 'Donald Duck')"
+        }
+        |> DbConn.query Author.FromReader
+        |> shouldNotBeError (fun result ->
+            result |> List.length |> should equal 2)
         
-    //[<Fact>]
-    //member __.``INSERT+SELECT binary should work`` () =
-    //    let testString = "A sample of bytes"
-    //    let bytes = Text.Encoding.UTF8.GetBytes(testString)
-    //    let fileId = 
-    //        scalar
-    //            "INSERT INTO file (data) VALUES (@data); SELECT LAST_INSERT_ROWID();" 
-    //            [ DbParam.create "data" (SqlType.Bytes bytes) ]
-    //            Convert.ToInt32
-    //            conn
-
-    //    let retrievedBytes =
-    //        querySingle
-    //            "SELECT data FROM file WHERE file_id = @file_id"
-    //            [ DbParam.create "file_id" (SqlType.Int fileId) ]
-    //            (fun rd -> rd.GetBytes("data"))
-    //            conn
-
-    //    match retrievedBytes with
-    //    | Some b -> 
-    //        let str = Text.Encoding.UTF8.GetString(b)
-    //        b |> should equal bytes
-    //        str |> should equal testString
-    //    | None   -> true |> should equal "Invalid bytes returned"            
+    [<Fact>]
+    member __.``INSERT MANY should fail and create DbError`` () =
+        dbCommand conn {    
+            cmdText "INSERT INTO fake_author (full_name) VALUES (@full_name);"
+        }
+        |> DbConn.execMany [
+                               [ "full_name", SqlType.String "Bugs Bunny" ]
+                               [ "full_name", SqlType.String "Donald Duck" ]
+                           ]
+        |> shouldNotBeOk
+ 
+    [<Fact>]
+    member __.``INSERT+SELECT binary should work`` () =
+        let testString = "A sample of bytes"
+        let bytes = Text.Encoding.UTF8.GetBytes(testString)
+        let emptyBytes : byte[] = Array.zeroCreate 0
+        dbCommand conn {
+            cmdText "INSERT INTO file (data) VALUES (@data);
+                     SELECT data FROM file WHERE file_id = LAST_INSERT_ROWID();"
+            cmdParam [ "data", SqlType.Bytes bytes ]
+        }
+        |> DbConn.querySingle (fun rd -> rd.GetBytesOrDefault "data" emptyBytes)
+        |> shouldNotBeError (fun result ->
+            match result with
+            | Some b -> 
+                let str = Text.Encoding.UTF8.GetString(b)
+                b |> should equal bytes
+                str |> should equal testString
+            | None   -> true |> should equal "Invalid bytes returned")

@@ -9,7 +9,7 @@ type CommandSpec<'a> =
         Transaction : IDbTransaction option
         CommandType : CommandType
         Statement   : string 
-        Param       : DbParams
+        Param       : RawDbParams
     }
     static member Create (conn : IDbConnection) = 
         {
@@ -24,18 +24,19 @@ type CommandBuilder<'a>(conn : IDbConnection) =
     member _.Yield(_) = CommandSpec<'a>.Create (conn)
 
     member _.Run(spec : CommandSpec<'a>) = 
+        let param = DbParams.create spec.Param
         match spec.Transaction with 
         | Some tran -> 
             tran.NewCommand(spec.CommandType, spec.Statement)
-                .SetDbParams(spec.Param)
+                .SetDbParams(param)
         
         | None ->
             spec.Connection
                    .NewCommand(spec.CommandType, spec.Statement)
-                   .SetDbParams(spec.Param)
+                   .SetDbParams(param)
 
     [<CustomOperation("cmdParam")>]
-    member _.DbParams (spec : CommandSpec<'a>, param : DbParams ) =
+    member _.DbParams (spec : CommandSpec<'a>, param : RawDbParams) =
         { spec with Param = param }
 
     [<CustomOperation("cmdText")>]

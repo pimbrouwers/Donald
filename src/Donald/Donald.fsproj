@@ -40,6 +40,9 @@
 
   <ItemGroup>
     <Compile Include="Core.fs" />
+    <Compile Include="DbConnection.fs" />
+    <Compile Include="DbTransaction.fs" />
+    <Compile Include="DbCommand.fs" />
     <Compile Include="DataReader.fs" />
     <Compile Include="CommandBuilder.fs" />
     <Compile Include="DbTran.fs" />
