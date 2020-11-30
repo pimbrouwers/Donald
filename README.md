@@ -13,19 +13,21 @@ This library is named after him.
 
 ## Key Features
 
-Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) a little bit more succinct. It is an entirely generic abstraction, and will work with all ADO implementations.
+Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO implementations.
 
-Functional wrappers are available for all the `IDbCommand` methods: `ExecuteNonQuery()`, `ExecuteScalar()` & `ExecuteReader()` and a full-suite of `IDataReader` extension methods to make retrieving values safer and more direct.
+The library is delivered as a computation expression responsible for building `IDbCommand` instances, which is executed using one of two modules, `DbConn` and `DbTran`, aptly named for the relevant workflow being used. 
+
+Two sets of type [extensions](#reading-values) for `IDataReader` are included to make manual object mapping a lot easier.
 
 > If you came looking for an ORM, this is not your light saber. And may the force be with you.
 
-Key features:
+## Design Goals 
 
-- Generic, supports all ADO implementations.
-- A natural DSL for interacting with databases.
-- Full async support.
-- Explicit error flow control.
-- `IDataReader` extensions to make mapping easier.
+- Support all ADO implementations.
+- Provide a [natural DSL](#quick-start) for interacting with databases.
+- Enable asynchronuos workflows.
+- Provide explicit error flow control.
+- Make object mapping easier easier.
 
 ## Getting Started
 
@@ -62,8 +64,7 @@ let [<EntryPoint>] main _ =
                       WHERE   author_id = @author_id"
             cmdParam  [ "author_id", SqlType.Int 1]
         }
-        |> DbConn.query (fun rd -> 
-            { FullName = rd.ReadString "full_name" })
+        |> DbConn.query (fun rd -> { FullName = rd.ReadString "full_name" })
     0
 ```
 
@@ -180,7 +181,7 @@ dbCommand conn {
 tran.Commit()
 ```
 
-## `IDataReader` Extension Methods
+## Reading Values
 
 To make obtaining values from reader more straight-forward, 2 sets of extension methods are available for:
 1. Get value, automatically defaulted
