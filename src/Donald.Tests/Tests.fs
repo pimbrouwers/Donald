@@ -172,7 +172,7 @@ type Statements() =
         }
         |> DbConn.querySingle (fun rd -> 
             {| 
-                FullName = rd.ReadStringOption "full_name" |> Option.asNullable
+                FullName = rd.ReadStringOption "full_name" |> Option.defaultValue null
                 Age = rd.ReadInt32Option "age" |> Option.asNullable
             |})
         |> shouldNotBeError (fun result ->
