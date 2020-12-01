@@ -93,13 +93,17 @@ module Author
 
 ```fsharp
 dbCommand conn {
-    cmdText "SELECT author_id, full_name FROM author"
+    cmdText "SELECT  author_id
+                   , full_name 
+             FROM    author"
 }
 |> DbConn.query Author.fromDataReader // DbResult<Author list>
 
 // Async
 dbCommand conn {
-    cmdText "SELECT author_id, full_name FROM author"
+    cmdText "SELECT  author_id
+                   , full_name 
+             FROM author"
 }
 |> DbConn.Async.query Author.fromDataReader // Task<DbResult<Author list>>
 ```
