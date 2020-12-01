@@ -103,7 +103,7 @@ dbCommand conn {
 dbCommand conn {
     cmdText "SELECT  author_id
                    , full_name 
-             FROM author"
+             FROM    author"
 }
 |> DbConn.Async.query Author.fromDataReader // Task<DbResult<Author list>>
 ```
