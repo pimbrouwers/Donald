@@ -89,7 +89,7 @@ type IDbCommand with
             |> ignore
         this
 
-    member private this.TryDo (fn : IDbCommand -> 'a) : 'a =
+    member private this.TryDo (fn : IDbCommand -> 'a) : 'a =        
         try 
             fn this
         with

@@ -13,14 +13,14 @@ type IDbTransaction with
     member internal this.NewDbCommand(commandType : CommandType, sql : string) =
         this.NewCommand(commandType, sql) :?> DbCommand
 
-    member internal this.TryRollback() =
+    member this.TryRollback() =
         try        
             if not(isNull this) 
                && not(isNull this.Connection) then this.Rollback()
         with ex  -> 
             raise (CouldNotRollbackTransactionError ex) 
 
-    member internal this.TryCommit() =
+    member this.TryCommit() =
         try
             if not(isNull this) 
                && not(isNull this.Connection) then this.Commit() 

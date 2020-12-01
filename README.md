@@ -163,11 +163,13 @@ dbCommand conn {
 
 ### Execute a statement within an explicit transaction
 
-> Note the use of the `DbTran` module instead of `DbConn`.
+Donald exposes most of it's functionality through `dbCommand { ... }`, `DbConn` and `DbTran`. But three type extension methods are exposed to make dealing with transactions safer.
 
 ```fsharp
-use tran = conn.BeginTransaction()
+// Safely begin transaction or throw CouldNotBeginTransactionError on failure
+use tran = conn.TryBeginTransaction()
 
+// Note the use of the `DbTran` module instead of `DbConn`
 dbCommand conn {
     cmdType  "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
@@ -175,8 +177,14 @@ dbCommand conn {
 }
 |> DbTran.exec // DbResult<unit>
 
-tran.Commit()
+// Attempt to commit, rollback on failure and throw CouldNotCommitTransactionError
+tran.TryCommit()
+
+// OR, safely rollback
+tran.TryRollback()
 ```
+
+> 
 
 ## Command Builder
 
@@ -236,6 +244,32 @@ rd.ReadInt32Option "some_field"          // string -> int32 option
 rd.ReadInt64Option "some_field"          // string -> int64 option
 rd.ReadBytesOption "some_field"          // string -> byte[] option
 ```
+
+## Exceptions
+
+Donald exposes six custom exception types to represent failure at different points in the lifecycle:
+
+``fsharp
+exception ConnectionBusyError
+exception CouldNotOpenConnectionError of exn
+exception CouldNotBeginTransactionError of exn
+exception CouldNotCommitTransactionError of exn
+exception CouldNotRollbackTransactionError of exn
+```
+
+During command execution failures the `Error` case of `DbResult<'a>` is used, that encapsulates a `DbExecutionError` record. These are produced internally as a `FailedExecutionError` and transformed by the `DbConn` and `DbTran` execution modules.
+
+```fsharp
+type DbExecutionError = 
+    { Statement : string
+      Error     : DbException }
+
+type DbResult<'a> = Result<'a, DbExecutionError>
+
+exception FailedExecutionError of DbExecutionError
+```
+
+> It's important to note that Donald will only raise these exceptions in _exceptional_ situations. 
 
 ## Find a bug?
 

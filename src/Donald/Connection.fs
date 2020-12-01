@@ -17,12 +17,11 @@ type IDbConnection with
         with ex -> 
             raise (CouldNotOpenConnectionError ex) 
 
-    member internal this.TryBeginTransaction()  =        
+    member this.TryBeginTransaction()  =        
         try
             this.TryOpenConnection()
             this.BeginTransaction()
-        with 
-        | CouldNotOpenConnectionError ex -> reraise()
+        with         
         | ex -> raise (CouldNotBeginTransactionError ex)
  
 
