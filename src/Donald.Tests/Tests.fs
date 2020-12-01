@@ -6,6 +6,7 @@ open System.Data.SQLite
 open System.IO
 open Xunit
 open Donald
+open FSharp.Control.Tasks.V2.ContextInsensitive
 open FsUnit.Xunit
 
 let connectionString = "Data Source=:memory:;Version=3;New=true;"
