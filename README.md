@@ -253,7 +253,7 @@ rd.ReadBytesOption "some_field"          // string -> byte[] option
 
 Donald exposes six custom exception types to represent failure at different points in the lifecycle:
 
-``fsharp
+```fsharp
 exception ConnectionBusyError
 exception CouldNotOpenConnectionError of exn
 exception CouldNotBeginTransactionError of exn
