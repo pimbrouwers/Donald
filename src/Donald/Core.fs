@@ -17,6 +17,12 @@ exception CouldNotCommitTransactionError of exn
 exception CouldNotRollbackTransactionError of exn
 exception FailedExecutionError of DbExecutionError
 
+type DataReaderCastError = 
+    { FieldName : string 
+      Error     : InvalidCastException }
+
+exception FailiedCastException of DataReaderCastError
+
   
 /// Represents the supported data types for database IO
 type SqlType =

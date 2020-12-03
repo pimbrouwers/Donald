@@ -22,8 +22,14 @@ type IDataReader with
         | false -> Some(i)
 
     member private this.GetOption (map : int -> 'a when 'a : struct) (name : string) = 
+        let fn v = 
+            try
+                map v
+            with 
+            | :? InvalidCastException as ex -> raise (FailiedCastException { FieldName = name; Error = ex })
+                
         this.GetOrdinalOption(name)
-        |> Option.map map
+        |> Option.map fn
 
     /// Safely retrieve String Option
     member this.ReadStringOption (name : string) = 
