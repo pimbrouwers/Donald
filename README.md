@@ -135,14 +135,14 @@ dbCommand conn {
 
 ```fsharp
 dbCommand conn {
-    cmdType  "INSERT INTO author (full_name)"
+    cmdText  "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
 }
 |> DbConn.exec // DbResult<unit>
 
 // Async
 dbCommand conn {
-    cmdType  "INSERT INTO author (full_name)"
+    cmdText  "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
 }
 |> DbConn.Async.exec // Task<DbResult<unit>>
@@ -152,14 +152,14 @@ dbCommand conn {
 
 ```fsharp
 dbCommand conn {
-   cmdType  "INSERT INTO author (full_name)" 
+   cmdText  "INSERT INTO author (full_name)" 
 }
 |> DbConn.execMany [ "full_name", SqlType.String "John Doe"
                      "full_name", SqlType.String "Jane Doe" ]
 
 // Async
 dbCommand conn {
-   cmdType  "INSERT INTO author (full_name)" 
+   cmdText  "INSERT INTO author (full_name)" 
 }
 |> DbConn.Async.execMany [ "full_name", SqlType.String "John Doe"
                            "full_name", SqlType.String "Jane Doe" ]                           
@@ -175,7 +175,7 @@ use tran = conn.TryBeginTransaction()
 
 // Note the use of the `DbTran` module instead of `DbConn`
 dbCommand conn {
-    cmdType  "INSERT INTO author (full_name)"
+    cmdText  "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
     cmdTran  tran
 }
