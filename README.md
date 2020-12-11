@@ -118,7 +118,7 @@ dbCommand conn {
               WHERE   author_id = @author_id"
     cmdParam  [ "author_id", SqlType.Int 1]
 } 
-|> DbConn.querySingle Author.fromDataReader // DbResult<Author list>
+|> DbConn.querySingle Author.fromDataReader // DbResult<Author option>
 
 // Async
 dbCommand conn {
@@ -128,7 +128,7 @@ dbCommand conn {
               WHERE   author_id = @author_id"
     cmdParam  [ "author_id", SqlType.Int 1]
 } 
-|> DbConn.Async.querySingle Author.fromDataReader // Task<DbResult<Author list>>
+|> DbConn.Async.querySingle Author.fromDataReader // Task<DbResult<Author option>>
 ```
 
 ### Execute a statement
