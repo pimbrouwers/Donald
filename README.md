@@ -27,7 +27,7 @@ Two sets of type [extensions](#reading-values) for `IDataReader` are included to
 - Provide a [natural DSL](#quick-start) for interacting with databases.
 - Enable asynchronuos workflows.
 - Provide explicit error flow control.
-- Make object mapping easier easier.
+- Make object mapping easier.
 
 ## Getting Started
 
@@ -108,7 +108,7 @@ dbCommand conn {
 |> DbConn.Async.query Author.fromDataReader // Task<DbResult<Author list>>
 ```
 
-### Query for a single strongly-type result
+### Query for a single strongly-typed result
 
 ```fsharp
 dbCommand conn {
