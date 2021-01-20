@@ -192,12 +192,13 @@ tran.TryRollback()
 
 ## Command Builder
 
-At the core of Donald is a computation expression for building `IDbCommand` instances. It exposes four modification points:
+At the core of Donald is a computation expression for building `IDbCommand` instances. It exposes five modification points:
 
 1. `cmdText` - SQL statement you intend to execute (default: `String.empty`).
 2. `cmdParam` - Input parameters for your statement (default: `[]`). 
 3. `cmdType` - Type of command you want to execute (default: `CommandType.Text`) 
 4. `cmdTran` - Transaction to assign to command.
+5. `cmdTimeout` - The maximum time a command can run for (default: underlying DbCommand default, usually 30 seconds)
 
 ## Execution Model
 
