@@ -95,11 +95,11 @@ type IDbCommand with
         with
         | :? DbException as ex -> raise (FailedExecutionError ({ Statement = this.CommandText; Error = ex }))
 
-    member internal this.Exec() =
+    member internal this.Exec () =
         this.TryDo (fun this -> this.ExecuteNonQuery() |> ignore)
 
-    member internal this.ExecReader() =
-        this.TryDo (fun this -> this.ExecuteReader())
+    member internal this.ExecReader () =        
+        this.TryDo (fun this -> this.ExecuteReader(CommandBehavior.SequentialAccess))
 
 type DbCommand with
     member private this.TryDoAsync (fn : DbCommand -> Task<'a>) : Task<'a> = task {
