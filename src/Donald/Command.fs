@@ -98,8 +98,8 @@ type IDbCommand with
     member internal this.Exec () =
         this.TryDo (fun this -> this.ExecuteNonQuery() |> ignore)
 
-    member internal this.ExecReader () =        
-        this.TryDo (fun this -> this.ExecuteReader(CommandBehavior.SequentialAccess))
+    member internal this.ExecReader (?cmdBehaviour : CommandBehavior) =        
+        this.TryDo (fun this -> this.ExecuteReader(cmdBehaviour |> Option.defaultValue CommandBehavior.SequentialAccess))
 
 type DbCommand with
     member private this.TryDoAsync (fn : DbCommand -> Task<'a>) : Task<'a> = task {
@@ -116,6 +116,6 @@ type DbCommand with
     member internal this.ExecAsync() =
         this.TryDoAsync (fun this -> this.ExecuteNonQueryAsync())
 
-    member internal this.ExecReaderAsync() =
-        this.TryDoAsync (fun this -> this.ExecuteReaderAsync())
+    member internal this.ExecReaderAsync(?cmdBehaviour : CommandBehavior) =
+        this.TryDoAsync (fun this -> this.ExecuteReaderAsync(cmdBehaviour |> Option.defaultValue CommandBehavior.SequentialAccess))
 

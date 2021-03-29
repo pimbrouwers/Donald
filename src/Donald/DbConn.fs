@@ -3,48 +3,44 @@ module Donald.DbConn
 
 open System.Data
 
-let private tryTransact (fn : IDbCommand -> DbResult<'a>) (cmd : IDbCommand) =     
-    use tran = cmd.Connection.TryBeginTransaction()
-    cmd.Transaction <- tran
-    let result = fn cmd
-    tran.TryCommit()
+let private tryDo (fn : IDbCommand -> DbResult<'a>) (cmd : IDbCommand) =     
+    cmd.Connection.TryOpenConnection() |> ignore    
+    let result = fn cmd    
     cmd.Dispose()
     result
 
 let exec (cmd : IDbCommand) : DbResult<unit> =
-    tryTransact (DbTran.exec) cmd
+    tryDo (DbTran.exec) cmd
 
 let execMany (param : RawDbParams list) (cmd : IDbCommand) : DbResult<unit> =
-    tryTransact (DbTran.execMany param) cmd
+    tryDo (DbTran.execMany param) cmd
 
 let query (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a list> =    
-    tryTransact (DbTran.query map) cmd
+    tryDo (DbTran.query map) cmd
 
 let querySingle (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a option> =
-    tryTransact (DbTran.querySingle map) cmd
+    tryDo (DbTran.querySingle map) cmd
 
 module Async =
     open System.Data.Common
     open System.Threading.Tasks
     open FSharp.Control.Tasks.V2.ContextInsensitive
     
-    let private tryTransactAsync (fn : DbCommand -> Task<DbResult<'a>>) (cmd : IDbCommand) : Task<DbResult<'a>> = task {
-        use tran = cmd.Connection.TryBeginTransaction()
-        cmd.Transaction <- tran :?> DbTransaction        
-        let! result = fn (cmd :?> DbCommand)
-        tran.TryCommit()
+    let private tryDoAsync (fn : DbCommand -> Task<DbResult<'a>>) (cmd : IDbCommand) : Task<DbResult<'a>> = task {
+        cmd.Connection.TryOpenConnection() |> ignore             
+        let! result = fn (cmd :?> DbCommand)        
         cmd.Dispose()
         return result
     }
 
     let exec (cmd : IDbCommand) : Task<DbResult<unit>> = 
-        tryTransactAsync (DbTran.Async.exec) cmd
+        tryDoAsync (DbTran.Async.exec) cmd
 
     let execMany (param : RawDbParams list) (cmd : IDbCommand) : Task<DbResult<unit>> =
-        tryTransactAsync (DbTran.Async.execMany param) cmd
+        tryDoAsync (DbTran.Async.execMany param) cmd
 
     let query (map : IDataReader -> 'a) (cmd : IDbCommand) : Task<DbResult<'a list>> =
-        tryTransactAsync (DbTran.Async.query map) cmd
+        tryDoAsync (DbTran.Async.query map) cmd
         
     let querySingle (map : IDataReader -> 'a) (cmd : IDbCommand) : Task<DbResult<'a option>> =
-        tryTransactAsync (DbTran.Async.querySingle map) cmd
+        tryDoAsync (DbTran.Async.querySingle map) cmd
