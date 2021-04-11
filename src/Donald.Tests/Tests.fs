@@ -6,7 +6,6 @@ open System.Data.SQLite
 open System.IO
 open Xunit
 open Donald
-open FSharp.Control.Tasks.V2.ContextInsensitive
 open FsUnit.Xunit
 
 let connectionString = "Data Source=:memory:;Version=3;New=true;"
@@ -42,7 +41,7 @@ type DbFixture () =
         dbCommand conn { 
             cmdText sql
         }        
-        |> DbConn.exec 
+        |> Db.exec 
         |> ignore
                   
     interface IDisposable with
@@ -119,7 +118,7 @@ type Statements() =
             cmdText sql
             cmdParam param            
         }
-        |> DbConn.querySingle map
+        |> Db.querySingle map
         |> shouldNotBeError (fun result -> result.IsSome |> should equal true)
                            
     [<Fact>]
@@ -129,7 +128,7 @@ type Statements() =
                      FROM   author
                      WHERE  author_id IN (1,2)"
         } 
-        |> DbConn.query Author.FromReader
+        |> Db.query Author.FromReader
         |> shouldNotBeError (fun result -> result.Length |> should equal 2)
 
     [<Fact>]
@@ -140,7 +139,7 @@ type Statements() =
                      FROM   author
                      WHERE  author_id IN (1,2)"
         }
-        |> DbConn.Async.query Author.FromReader
+        |> Db.Async.query Author.FromReader
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> shouldNotBeError (fun result -> result.Length |> should equal 2)
@@ -151,7 +150,7 @@ type Statements() =
             cmdText "SELECT author_id, full_name
                      FROM   fake_author"
         }
-        |> DbConn.query Author.FromReader
+        |> Db.query Author.FromReader
         |> shouldNotBeOk
 
     [<Fact>]
@@ -161,7 +160,7 @@ type Statements() =
                      FROM   author
                      WHERE  author_id = 1"
         }
-        |> DbConn.querySingle Author.FromReader
+        |> Db.querySingle Author.FromReader
         |> shouldNotBeError (fun result ->
             result.IsSome         |> should equal true
             result.Value.AuthorId |> should equal 1)
@@ -171,7 +170,7 @@ type Statements() =
         dbCommand conn {
             cmdText "SELECT NULL AS full_name, NULL AS age"
         }
-        |> DbConn.querySingle (fun rd -> 
+        |> Db.querySingle (fun rd -> 
             {| 
                 FullName = rd.ReadStringOption "full_name" |> Option.defaultValue null
                 Age = rd.ReadInt32Option "age" |> Option.asNullable
@@ -188,7 +187,7 @@ type Statements() =
                         FROM   author
                         WHERE  author_id = 1"
         }
-        |> DbConn.Async.querySingle Author.FromReader
+        |> Db.Async.querySingle Author.FromReader
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> shouldNotBeError (fun result ->            
@@ -207,7 +206,7 @@ type Statements() =
                       WHERE  author_id = LAST_INSERT_ROWID();"
             cmdParam [ "full_name", SqlType.String fullName ]
         }                 
-        |> DbConn.querySingle Author.FromReader               
+        |> Db.querySingle Author.FromReader               
         |> shouldNotBeError (fun result ->  
             result.IsSome |> should equal true
 
@@ -229,7 +228,7 @@ type Statements() =
                          "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null
                      ]
         }
-        |> DbConn.exec
+        |> Db.exec
         |> shouldNotBeError (fun result -> ())
 
     [<Fact>]
@@ -239,7 +238,7 @@ type Statements() =
             cmdText  "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
             cmdParam [ "full_name", SqlType.String fullName ]
         }
-        |> DbConn.exec
+        |> Db.exec
         |> shouldNotBeOk
 
     [<Fact>]
@@ -247,7 +246,7 @@ type Statements() =
         dbCommand conn {    
             cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
         }
-        |> DbConn.execMany [
+        |> Db.execMany [
                                [ "full_name", SqlType.String "Bugs Bunny" ]
                                [ "full_name", SqlType.String "Donald Duck" ]
                            ]
@@ -256,7 +255,7 @@ type Statements() =
         dbCommand conn {
             cmdText "SELECT author_id, full_name FROM author WHERE full_name IN ('Bugs Bunny', 'Donald Duck')"
         }
-        |> DbConn.query Author.FromReader
+        |> Db.query Author.FromReader
         |> shouldNotBeError (fun result ->
             result |> List.length |> should equal 2)
         
@@ -265,7 +264,7 @@ type Statements() =
         dbCommand conn {    
             cmdText "INSERT INTO fake_author (full_name) VALUES (@full_name);"
         }
-        |> DbConn.execMany [
+        |> Db.execMany [
                                [ "full_name", SqlType.String "Bugs Bunny" ]
                                [ "full_name", SqlType.String "Donald Duck" ]
                            ]
@@ -281,7 +280,7 @@ type Statements() =
                      SELECT data FROM file WHERE file_id = LAST_INSERT_ROWID();"
             cmdParam [ "data", SqlType.Bytes bytes ]
         }
-        |> DbConn.querySingle (fun rd -> rd.ReadBytes "data")
+        |> Db.querySingle (fun rd -> rd.ReadBytes "data")
         |> shouldNotBeError (fun result ->
             match result with
             | Some b -> 
@@ -289,3 +288,29 @@ type Statements() =
                 b |> should equal bytes
                 str |> should equal testString
             | None   -> true |> should equal "Invalid bytes returned")
+
+    [<Fact>]
+    member __.``INSERT TRAN author then retrieve to verify`` () =
+        let fullName = "Janet Doe"
+        let param = [ "full_name", SqlType.String fullName ]
+        use tran = conn.TryBeginTransaction()
+
+        dbCommand conn {
+            cmdText  "INSERT INTO author (full_name) VALUES (@full_name);"
+            cmdParam param
+            cmdTran  tran
+        }                 
+        |> Db.exec
+        |> ignore
+
+        tran.TryCommit()        
+
+        dbCommand conn {
+            cmdText  "SELECT author_id, full_name
+                      FROM   author
+                      WHERE  full_name = @full_name;"
+            cmdParam param
+        }                 
+        |> Db.querySingle Author.FromReader               
+        |> shouldNotBeError (fun result ->  
+            result.IsSome |> should equal true)

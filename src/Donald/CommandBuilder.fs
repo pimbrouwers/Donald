@@ -23,6 +23,7 @@ type CommandSpec<'a> =
             Param          = []
         }
 
+/// Computation expression for generating IDbCommand instances.
 type CommandBuilder<'a>(conn : IDbConnection) =
     member _.Yield(_) = CommandSpec<'a>.Create (conn)
 
@@ -39,23 +40,29 @@ type CommandBuilder<'a>(conn : IDbConnection) =
                 .SetDbParams(param)
 
     [<CustomOperation("cmdParam")>]
+    /// Add DbParams.
     member _.DbParams (spec : CommandSpec<'a>, param : RawDbParams) =
         { spec with Param = param }
 
     [<CustomOperation("cmdText")>]
+    /// Set statement text.
     member _.Statement (spec : CommandSpec<'a>, statement : string) =
         { spec with Statement = statement }
 
     [<CustomOperation("cmdTran")>]
+    /// Set transaction.
     member _.Transaction (spec : CommandSpec<'a>, tran : IDbTransaction) =
         { spec with Transaction = Some tran }
     
     [<CustomOperation("cmdType")>]
+    /// Set command type (default: CommandType.Text).
     member _.CommandType (spec : CommandSpec<'a>, commandType : CommandType) =
         { spec with CommandType = commandType }
     
     [<CustomOperation("cmdTimeout")>]
+    /// Set command timeout.
     member _.CommandTimeout (spec : CommandSpec<'a>, timeout : TimeSpan) =
         { spec with CommandTimeout = Some <| int timeout.TotalSeconds }
 
+/// Computation expression for generating IDbCommand instances.
 let dbCommand<'a> (conn : IDbConnection) = CommandBuilder<'a>(conn)

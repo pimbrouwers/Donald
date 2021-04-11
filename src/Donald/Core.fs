@@ -4,11 +4,18 @@ module Donald.Core
 open System
 open System.Data.Common
 
+/// Details of failure to execute database command.
 type DbExecutionError = 
     { Statement : string
       Error     : DbException }
 
+/// Represents the success or failure of a database command execution.
 type DbResult<'a> = Result<'a, DbExecutionError>
+
+/// Details of failure to cast a IDataRecord field.
+type DataReaderCastError = 
+    { FieldName : string 
+      Error     : InvalidCastException }
 
 exception ConnectionBusyError
 exception CouldNotOpenConnectionError of exn
@@ -16,15 +23,9 @@ exception CouldNotBeginTransactionError of exn
 exception CouldNotCommitTransactionError of exn
 exception CouldNotRollbackTransactionError of exn
 exception FailedExecutionError of DbExecutionError
-
-type DataReaderCastError = 
-    { FieldName : string 
-      Error     : InvalidCastException }
-
 exception FailiedCastException of DataReaderCastError
-
   
-/// Represents the supported data types for database IO
+/// Represents the supported data types for database IO.
 type SqlType =
     | Null       
     | String         of String
@@ -45,7 +46,7 @@ type SqlType =
     | DateTimeOffset of DateTimeOffset
     | Bytes          of Byte[]
 
-/// Specifies an input parameter for an IDbCommand
+/// Specifies an input parameter for an IDbCommand.
 [<Struct>]
 type DbParam = 
     { 
@@ -54,15 +55,17 @@ type DbParam =
     }
 
 module DbParam = 
+    /// Create a new DbParam from raw inputs.
     let create (name : string) (value : SqlType) =
         { Name = name; Value = value }
 
-/// Type abbreviation for (string * SqlType) list
+/// Type abbreviation for (string * SqlType) list.
 type RawDbParams = (string * SqlType) list
 
-/// Type abbreviation for DbParam list
+/// Type abbreviation for DbParam list.
 type DbParams = DbParam list
 
 module DbParams =
+    /// Create a new DbParam list from raw inputs.
     let create (lst : RawDbParams) =
         [ for k, v in lst -> DbParam.create k v ]

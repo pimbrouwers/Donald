@@ -15,7 +15,7 @@ This library is named after him.
 
 Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO implementations.
 
-The library is delivered as a [computation expression](#command-builder) responsible for building `IDbCommand` instances, which is executed using one of [two modules](#execution-model), `DbConn` and `DbTran`, aptly named for the relevant workflow being used. 
+The library is delivered as a [computation expression](#command-builder) responsible for building `IDbCommand` instances, which is executed using the `Db` module.
 
 Two sets of type [extensions](#reading-values) for `IDataReader` are included to make manual object mapping a lot easier.
 
@@ -62,7 +62,7 @@ let authors : DbResult<Author list> =
                   WHERE   author_id = @author_id"
         cmdParam  [ "author_id", SqlType.Int 1]
     }
-    |> DbConn.query (fun rd -> { FullName = rd.ReadString "full_name" })
+    |> Db.query (fun rd -> { FullName = rd.ReadString "full_name" })
 ```
 
 ## An Example using SQLite
@@ -97,7 +97,7 @@ dbCommand conn {
                    , full_name 
              FROM    author"
 }
-|> DbConn.query Author.fromDataReader // DbResult<Author list>
+|> Db.query Author.fromDataReader // DbResult<Author list>
 
 // Async
 dbCommand conn {
@@ -105,7 +105,7 @@ dbCommand conn {
                    , full_name 
              FROM    author"
 }
-|> DbConn.Async.query Author.fromDataReader // Task<DbResult<Author list>>
+|> Db.Async.query Author.fromDataReader // Task<DbResult<Author list>>
 ```
 
 ### Query for a single strongly-typed result
@@ -118,7 +118,7 @@ dbCommand conn {
               WHERE   author_id = @author_id"
     cmdParam  [ "author_id", SqlType.Int 1]
 } 
-|> DbConn.querySingle Author.fromDataReader // DbResult<Author option>
+|> Db.querySingle Author.fromDataReader // DbResult<Author option>
 
 // Async
 dbCommand conn {
@@ -128,7 +128,7 @@ dbCommand conn {
               WHERE   author_id = @author_id"
     cmdParam  [ "author_id", SqlType.Int 1]
 } 
-|> DbConn.Async.querySingle Author.fromDataReader // Task<DbResult<Author option>>
+|> Db.Async.querySingle Author.fromDataReader // Task<DbResult<Author option>>
 ```
 
 ### Execute a statement
@@ -138,14 +138,14 @@ dbCommand conn {
     cmdText  "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
 }
-|> DbConn.exec // DbResult<unit>
+|> Db.exec // DbResult<unit>
 
 // Async
 dbCommand conn {
     cmdText  "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
 }
-|> DbConn.Async.exec // Task<DbResult<unit>>
+|> Db.Async.exec // Task<DbResult<unit>>
 ```
 
 ### Execute a statement many times
@@ -154,32 +154,32 @@ dbCommand conn {
 dbCommand conn {
    cmdText  "INSERT INTO author (full_name)" 
 }
-|> DbConn.execMany [ "full_name", SqlType.String "John Doe"
+|> Db.execMany [ "full_name", SqlType.String "John Doe"
                      "full_name", SqlType.String "Jane Doe" ]
 
 // Async
 dbCommand conn {
    cmdText  "INSERT INTO author (full_name)" 
 }
-|> DbConn.Async.execMany [ "full_name", SqlType.String "John Doe"
+|> Db.Async.execMany [ "full_name", SqlType.String "John Doe"
                            "full_name", SqlType.String "Jane Doe" ]                           
 ```
 
 ### Execute a statement within an explicit transaction
 
-Donald exposes most of it's functionality through `dbCommand { ... }`, `DbConn` and `DbTran`. But three type extension methods are exposed to make dealing with transactions safer.
+Donald exposes most of it's functionality through `dbCommand { ... }` and the `Db` module. But three type extension methods are exposed to make dealing with transactions safer.
 
 ```fsharp
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
 use tran = conn.TryBeginTransaction()
 
-// Note the use of the `DbTran` module instead of `DbConn`
+// Build and execute the IDbCommand
 dbCommand conn {
     cmdText  "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
     cmdTran  tran
 }
-|> DbTran.exec // DbResult<unit>
+|> Db.exec // DbResult<unit>
 
 // Attempt to commit, rollback on failure and throw CouldNotCommitTransactionError
 tran.TryCommit()
@@ -199,14 +199,6 @@ At the core of Donald is a computation expression for building `IDbCommand` inst
 3. `cmdType` - Type of command you want to execute (default: `CommandType.Text`) 
 4. `cmdTran` - Transaction to assign to command.
 5. `cmdTimeout` - The maximum time a command can run for (default: underlying DbCommand default, usually 30 seconds)
-
-## Execution Model
-
-The functionality in Donald is split into two execution models, transactional (`DbTran`) and non-transactional (`DbConn`), which operate against the provided `IDbCommand`. 
-
-`DbTran` assumes the provided `IDbCommand` has been assigned an `IDbTransaction` and will simply perform the function requested, returning a `DbResult<'a>`.
-
-`DbConn` will execute the provided command directly against the `IDbConnection` and then perform the function requested, returning a `DbResult<'a>`.
 
 ## Reading Values
 
@@ -262,7 +254,7 @@ exception CouldNotCommitTransactionError of exn
 exception CouldNotRollbackTransactionError of exn
 ```
 
-During command execution failures the `Error` case of `DbResult<'a>` is used, that encapsulates a `DbExecutionError` record. These are produced internally as a `FailedExecutionError` and transformed by the `DbConn` and `DbTran` execution modules.
+During command execution failures the `Error` case of `DbResult<'a>` is used, that encapsulates a `DbExecutionError` record. These are produced internally as a `FailedExecutionError` and transformed by the `Db` module.
 
 ```fsharp
 type DbExecutionError = 

@@ -18,6 +18,7 @@ type IDbConnection with
         with ex -> 
             raise (CouldNotOpenConnectionError ex) 
 
+    /// Safely attempt to create a new IDbTransaction.
     member this.TryBeginTransaction()  =        
         try
             this.TryOpenConnection()
