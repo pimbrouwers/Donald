@@ -48,13 +48,14 @@ dotnet add package Donald
 open Donald
 
 type Author = 
-    {
-        FullName : string
-    }
+    { FullName : string }
+
+    static member Create fullName =
+        { FullName = fullName }
 
 use conn = new SQLiteConnection("{your connection string}")
 
-let authors : DbResult<Author list> =
+let authors : DbResult<Author list> =    
     dbCommand conn {
         cmdText  "SELECT  author_id
                         , full_name 
@@ -62,7 +63,9 @@ let authors : DbResult<Author list> =
                   WHERE   author_id = @author_id"
         cmdParam  [ "author_id", SqlType.Int 1]
     }
-    |> Db.query (fun rd -> { FullName = rd.ReadString "full_name" })
+    |> Db.query (fun rd -> 
+        let fullName = rd.ReadString "full_name" 
+        Author.Create fullName)
 ```
 
 ## An Example using SQLite
@@ -79,14 +82,20 @@ type Author =
         AuthorId : int
         FullName : string
     }
+
+    static member Create authorId fullName =
+        {
+            AuthorId = authorId
+            FullName = fullName
+        }
     
 module Author
     let fromDataReader (rd : IDataReader) : Author = 
-          {
-              // IDataReader extension method (see below)
-              AuthorId = rd.ReadInt32 "author_id"
-              FullName = rd.ReadString "full_name"
-          }
+        // IDataReader extension method (see below)
+        let authorId = rd.ReadInt32 "author_id"
+        let fullName = rd.ReadString "full_name"
+          
+        Author.Create authorId fullName
 ```
 
 ### Query for multiple strongly-typed results
@@ -155,14 +164,14 @@ dbCommand conn {
    cmdText  "INSERT INTO author (full_name)" 
 }
 |> Db.execMany [ "full_name", SqlType.String "John Doe"
-                     "full_name", SqlType.String "Jane Doe" ]
+                 "full_name", SqlType.String "Jane Doe" ]
 
 // Async
 dbCommand conn {
    cmdText  "INSERT INTO author (full_name)" 
 }
 |> Db.Async.execMany [ "full_name", SqlType.String "John Doe"
-                           "full_name", SqlType.String "Jane Doe" ]                           
+                       "full_name", SqlType.String "Jane Doe" ]                           
 ```
 
 ### Execute a statement within an explicit transaction
@@ -187,8 +196,6 @@ tran.TryCommit()
 // OR, safely rollback
 tran.TryRollback()
 ```
-
-> 
 
 ## Command Builder
 
