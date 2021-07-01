@@ -78,16 +78,12 @@ Consider the following model:
 
 ```fsharp
 type Author = 
-    {
-        AuthorId : int
-        FullName : string
-    }
+    { AuthorId : int
+      FullName : string }
 
     static member Create authorId fullName =
-        {
-            AuthorId = authorId
-            FullName = fullName
-        }
+        { AuthorId = authorId
+          FullName = fullName }
     
 module Author
     let fromDataReader (rd : IDataReader) : Author = 
