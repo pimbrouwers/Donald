@@ -154,18 +154,6 @@ type Statements() =
         |> shouldNotBeOk
 
     [<Fact>]
-    member __.``SELECT single record`` () =            
-        dbCommand conn {
-            cmdText "SELECT author_id, full_name
-                     FROM   author
-                     WHERE  author_id = 1"
-        }
-        |> Db.querySingle Author.FromReader
-        |> shouldNotBeError (fun result ->
-            result.IsSome         |> should equal true
-            result.Value.AuthorId |> should equal 1)
-
-    [<Fact>]
     member __.``SELECT NULL`` () =            
         dbCommand conn {
             cmdText "SELECT NULL AS full_name, NULL AS age"
@@ -180,6 +168,38 @@ type Statements() =
             result.Value.FullName |> should equal null
             result.Value.Age      |> should equal null)
       
+    [<Fact>]
+    member __.``SELECT scalar value`` () =            
+        dbCommand conn {
+            cmdText "SELECT 1"
+        }
+        |> Db.scalar Convert.ToInt32
+        |> shouldNotBeError (fun result ->            
+            result |> should equal 1)
+    
+    [<Fact>]
+    member __.``SELECT scalar value async`` () =            
+        dbCommand conn {
+            cmdText "SELECT 1"
+        }
+        |> Db.Async.scalar Convert.ToInt32
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> shouldNotBeError (fun result ->            
+            result |> should equal 1)
+
+    [<Fact>]
+    member __.``SELECT single record`` () =            
+        dbCommand conn {
+            cmdText "SELECT author_id, full_name
+                     FROM   author
+                     WHERE  author_id = 1"
+        }
+        |> Db.querySingle Author.FromReader
+        |> shouldNotBeError (fun result ->
+            result.IsSome         |> should equal true
+            result.Value.AuthorId |> should equal 1)
+
     [<Fact>]
     member __.``SELECT single record async`` () =                    
         dbCommand conn {

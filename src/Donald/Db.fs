@@ -27,14 +27,21 @@ let execMany (param : RawDbParams list) (cmd : IDbCommand) : DbResult<unit> =
     with 
     | FailedExecutionError e -> Error e
 
+/// Execute scalar query and box the result.
+let scalar (convert : obj -> 'a) (cmd : IDbCommand) : DbResult<'a> =
+    tryDo (fun cmd -> 
+        let value = cmd.ExecuteScalar()
+        convert value)
+        cmd
+
+
 /// Execute parameterized query, enumerate all records and apply mapping.
 let query (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a list> =   
-    tryDo 
-        (fun cmd ->     
-            use rd = cmd.ExecReader()
-            let results = [ while rd.Read() do yield map rd ]
-            rd.Close() |> ignore
-            results) 
+    tryDo (fun cmd ->     
+        use rd = cmd.ExecReader()
+        let results = [ while rd.Read() do yield map rd ]
+        rd.Close() |> ignore
+        results) 
         cmd
 
 /// Execute paramterized query, read only first record and apply mapping.
@@ -79,6 +86,14 @@ module Async =
                 ()
 
             return ()            
+        }
+        tryDoAsync inner cmd
+
+    /// Execute scalar query and box the result.
+    let scalar (convert : obj -> 'a) (cmd : IDbCommand) : Task<DbResult<'a>> =
+        let inner = fun (cmd : DbCommand) -> task {        
+            let! value = cmd.ExecuteScalarAsync()
+            return convert value
         }
         tryDoAsync inner cmd
 
