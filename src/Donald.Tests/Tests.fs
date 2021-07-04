@@ -407,3 +407,17 @@ type Statements() =
 
         result             
         |> shouldNotBeError (fun result -> result.IsSome |> should equal true)
+
+    [<Fact>]
+    member __.``dbResult {...} for...do loop`` () =
+        let cmds = 
+            [1..10]
+            |> Seq.map (fun n -> dbCommand conn {
+                cmdText (sprintf "SELECT %i" n)
+            })
+
+        dbResult {
+            for cmd in cmds do
+                cmd |> Db.scalar Convert.ToInt32 |> ignore
+        }        
+        |> shouldNotBeError (fun result -> ())

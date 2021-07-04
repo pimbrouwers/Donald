@@ -6,13 +6,43 @@ open System.Data
 
 /// Computation expression for DbResult<_>.
 type DbResultBuilder() =
-    member _.Return (x : 'a) = Ok x
+    member _.Return (value : 'a) : DbResult<'a> = Ok value
 
-    member _.ReturnFrom (result : DbResult<_>) = result
+    member _.ReturnFrom (result : DbResult<_>) : DbResult<_> = result
 
-    member _.Zero () = Ok ()
+    member _.Bind (result : DbResult<_>, fn) : DbResult<_> = Result.bind fn result
 
-    member _.Bind (result : DbResult<'a>, f) = Result.bind f result
+    member _.Zero () : DbResult<unit> = Ok ()
+
+    member _.Delay(fn : unit -> DbResult<_>) = fn
+
+    member _.Run(fn : unit -> DbResult<_>) = fn ()
+
+    member x.TryWith (result : DbResult<_>, exceptionHandler : exn -> DbResult<_>) = 
+        try x.ReturnFrom (result)        
+        with ex -> exceptionHandler ex
+
+    member x.TryFinally (result : DbResult<_>, fn : unit -> unit) = 
+        try x.ReturnFrom (result)        
+        finally fn ()
+
+    member x.Using (disposable : #IDisposable, fn : 'a -> DbResult<'b>) = 
+        x.TryFinally(fn disposable, fun _ -> 
+            match disposable with 
+            | null -> () 
+            | disposable -> disposable.Dispose()) 
+
+    member x.While (guard : unit -> bool,  fn : unit -> DbResult<'a>) : DbResult<unit> =
+        if not (guard()) 
+            then x.Zero () 
+        else 
+            do fn () |> ignore
+            x.While(guard, fn)
+
+    member x.For (items : seq<_>, fn : 'a -> DbResult<_>) : DbResult<_> = 
+        x.Using(items.GetEnumerator(), fun enum ->
+            x.While(enum.MoveNext, 
+                x.Delay (fun () -> fn enum.Current)))
 
 /// Computation expression for DbResult<_>.
 let dbResult = DbResultBuilder()
