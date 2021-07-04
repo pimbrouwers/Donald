@@ -1,5 +1,5 @@
 ﻿[<AutoOpen>]
-module Donald.CommandBuilder
+module Donald.DbCommandBuilder
 
 open System
 open System.Data
@@ -24,7 +24,7 @@ type CommandSpec<'a> =
         }
 
 /// Computation expression for generating IDbCommand instances.
-type CommandBuilder<'a>(conn : IDbConnection) =
+type DbCommandBuilder<'a>(conn : IDbConnection) =
     member _.Yield(_) = CommandSpec<'a>.Create (conn)
 
     member _.Run(spec : CommandSpec<'a>) = 
@@ -65,4 +65,4 @@ type CommandBuilder<'a>(conn : IDbConnection) =
         { spec with CommandTimeout = Some <| int timeout.TotalSeconds }
 
 /// Computation expression for generating IDbCommand instances.
-let dbCommand<'a> (conn : IDbConnection) = CommandBuilder<'a>(conn)
+let dbCommand<'a> (conn : IDbConnection) = DbCommandBuilder<'a>(conn)

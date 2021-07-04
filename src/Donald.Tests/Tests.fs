@@ -334,3 +334,36 @@ type Statements() =
         |> Db.querySingle Author.FromReader               
         |> shouldNotBeError (fun result ->  
             result.IsSome |> should equal true)
+
+    [<Fact>]
+    member __.``dbResult {...} INSERT TRAN author then retrieve to verify`` () =
+        let fullName = "Janet Doe"
+        let param = [ "full_name", SqlType.String fullName ]
+
+        use tran = conn.TryBeginTransaction()
+
+        let insertCmd = dbCommand conn {
+            cmdText  "INSERT INTO author (full_name) VALUES (@full_name);"
+            cmdParam param
+            cmdTran  tran
+        }
+
+        let selectCmd = dbCommand conn {
+            cmdText  "SELECT author_id, full_name
+                        FROM   author
+                        WHERE  full_name = @full_name;"
+            cmdParam param
+        }
+        
+        let result = dbResult {
+            let! _ = insertCmd |> Db.exec
+
+            let! author = selectCmd |> Db.querySingle Author.FromReader
+
+            return author
+        }
+
+        tran.TryCommit()        
+
+        result             
+        |> shouldNotBeError (fun result -> result.IsSome |> should equal true)

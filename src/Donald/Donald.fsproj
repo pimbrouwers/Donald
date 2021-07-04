@@ -45,7 +45,8 @@
     <Compile Include="Command.fs" />
     <Compile Include="DataReader.fs" />
     <Compile Include="Db.fs" />
-    <Compile Include="CommandBuilder.fs" />
+    <Compile Include="DbCommandBuilder.fs" />
+    <Compile Include="DbResultBuilder.fs" />
   </ItemGroup>
 
 </Project>
