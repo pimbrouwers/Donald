@@ -183,7 +183,7 @@ Donald exposes most of it's functionality through `dbCommand { ... }` and the `D
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
 use tran = conn.TryBeginTransaction()
 
-// Build and execute the IDbCommand
+// Build our IDbCommand's
 let param = [ "full_name", SqlType.String "John Doe" ]
 
 let insertCmd = dbCommand conn {
@@ -201,6 +201,7 @@ let selectCmd = dbCommand conn {
     cmdTran  tran
 } 
 
+// Execute IDbCommand's
 let result = dbResult {
   do! insertCmd |> Db.exec 
   return! selectCmd |> Db.querySingle Author.fromDataReader
