@@ -53,6 +53,11 @@ type Author =
     static member Create fullName =
         { FullName = fullName }
 
+module Author =
+  let fromDataReader (rd : IDataReader) =
+      let fullName = rd.ReadString "full_name" 
+      Author.Create fullName
+
 use conn = new SQLiteConnection("{your connection string}")
 
 let authors : DbResult<Author list> =    
@@ -63,9 +68,7 @@ let authors : DbResult<Author list> =
                   WHERE   author_id = @author_id"
         cmdParam  [ "author_id", SqlType.Int 1]
     }
-    |> Db.query (fun rd -> 
-        let fullName = rd.ReadString "full_name" 
-        Author.Create fullName)
+    |> Db.query Author.fromDataReader
 ```
 
 ## An Example using SQLite
@@ -117,21 +120,21 @@ dbCommand conn {
 
 ```fsharp
 dbCommand conn {
-    cmdText  "SELECT  author_id
-                    , full_name 
-              FROM    author 
-              WHERE   author_id = @author_id"
-    cmdParam  [ "author_id", SqlType.Int 1]
+    cmdText "SELECT  author_id
+                   , full_name 
+             FROM    author 
+             WHERE   author_id = @author_id"
+    cmdParam [ "author_id", SqlType.Int 1]
 } 
 |> Db.querySingle Author.fromDataReader // DbResult<Author option>
 
 // Async
 dbCommand conn {
-    cmdText  "SELECT  author_id
-                    , full_name 
-              FROM    author 
-              WHERE   author_id = @author_id"
-    cmdParam  [ "author_id", SqlType.Int 1]
+    cmdText "SELECT  author_id
+                   , full_name 
+             FROM    author 
+             WHERE   author_id = @author_id"
+    cmdParam [ "author_id", SqlType.Int 1]
 } 
 |> Db.Async.querySingle Author.fromDataReader // Task<DbResult<Author option>>
 ```
@@ -140,14 +143,14 @@ dbCommand conn {
 
 ```fsharp
 dbCommand conn {
-    cmdText  "INSERT INTO author (full_name)"
+    cmdText "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
 }
 |> Db.exec // DbResult<unit>
 
 // Async
 dbCommand conn {
-    cmdText  "INSERT INTO author (full_name)"
+    cmdText "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
 }
 |> Db.Async.exec // Task<DbResult<unit>>
@@ -157,40 +160,54 @@ dbCommand conn {
 
 ```fsharp
 dbCommand conn {
-   cmdText  "INSERT INTO author (full_name)" 
+   cmdText "INSERT INTO author (full_name)" 
 }
 |> Db.execMany [ "full_name", SqlType.String "John Doe"
                  "full_name", SqlType.String "Jane Doe" ]
 
 // Async
 dbCommand conn {
-   cmdText  "INSERT INTO author (full_name)" 
+   cmdText "INSERT INTO author (full_name)" 
 }
 |> Db.Async.execMany [ "full_name", SqlType.String "John Doe"
                        "full_name", SqlType.String "Jane Doe" ]                           
 ```
 
-### Execute a statement within an explicit transaction
+### Execute statements within an explicit transaction
 
 Donald exposes most of it's functionality through `dbCommand { ... }` and the `Db` module. But three type extension methods are exposed to make dealing with transactions safer.
+
+> Donald contains a computation expression `dbResult { ... }` for dealing with `DbResult<'a>' instances, which is especially useful when you are working with dependent commands, which is common during transactional work.
 
 ```fsharp
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
 use tran = conn.TryBeginTransaction()
 
 // Build and execute the IDbCommand
-dbCommand conn {
-    cmdText  "INSERT INTO author (full_name)"
-    cmdParam [ "full_name", SqlType.String "John Doe" ]
+let param = [ "full_name", SqlType.String "John Doe" ]
+
+let insertCmd = dbCommand conn {
+    cmdText "INSERT INTO author (full_name)"
+    cmdParam param
     cmdTran  tran
 }
-|> Db.exec // DbResult<unit>
+
+let selectCmd = dbCommand conn {
+    cmdText "SELECT  author_id
+                   , full_name 
+             FROM    author 
+             WHERE   full_name = @author_id"
+    cmdParam param
+    cmdTran  tran
+} 
+
+let result = dbResult {
+  do! insertCmd |> Db.exec 
+  return! selectCmd |> Db.querySingle Author.fromDataReader
+}
 
 // Attempt to commit, rollback on failure and throw CouldNotCommitTransactionError
-tran.TryCommit()
-
-// OR, safely rollback
-tran.TryRollback()
+tran.TryCommit() // or, safely rollback tran.TryRollback()
 ```
 
 ## Command Builder

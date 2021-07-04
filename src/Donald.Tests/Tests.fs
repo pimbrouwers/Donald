@@ -336,8 +336,48 @@ type Statements() =
             result.IsSome |> should equal true)
 
     [<Fact>]
+    member __.``dbResult {...} INSERT author with NULL birth_date`` () =
+        let fullName = "Jimmy Doe"
+        let birthDate : DateTime option = None
+
+        let cmd = dbCommand conn {
+            cmdText  "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
+            cmdParam [ 
+                         "full_name", SqlType.String fullName
+                         "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null
+                     ]
+        }
+
+        dbResult {
+            do! cmd |> Db.exec
+        }        
+        |> shouldNotBeError (fun result -> ())
+
+    [<Fact>]
+    member __.``dbResult {...} INSERT MANY authors then count to verify`` () =
+        let insertCmd = dbCommand conn {    
+            cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
+        }
+
+        let selectCmd = dbCommand conn {
+            cmdText "SELECT author_id, full_name FROM author WHERE full_name IN ('Jeremiah Doe', 'Jimmington Doe')"
+        }
+                
+        let result = dbResult {
+            do! insertCmd |> Db.execMany [
+                [ "full_name", SqlType.String "Jeremiah Doe" ]
+                [ "full_name", SqlType.String "Jimmington Doe" ]
+            ]
+
+            return! selectCmd |> Db.query Author.FromReader
+        }
+        
+        result
+        |> shouldNotBeError (fun result -> result |> List.length |> should equal 2)
+
+    [<Fact>]
     member __.``dbResult {...} INSERT TRAN author then retrieve to verify`` () =
-        let fullName = "Janet Doe"
+        let fullName = "Jackie Doe"
         let param = [ "full_name", SqlType.String fullName ]
 
         use tran = conn.TryBeginTransaction()
@@ -350,8 +390,8 @@ type Statements() =
 
         let selectCmd = dbCommand conn {
             cmdText  "SELECT author_id, full_name
-                        FROM   author
-                        WHERE  full_name = @full_name;"
+                      FROM   author
+                      WHERE  full_name = @full_name;"
             cmdParam param
         }
         
