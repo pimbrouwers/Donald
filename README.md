@@ -19,7 +19,7 @@ The library is delivered as multiple computation expressions responsible for [bu
 
 Two sets of type [extensions](#reading-values) for `IDataReader` are included to make manual object mapping a lot easier.
 
-> If you came looking for an ORM (object-relational mapper), this is not the library for you.
+> If you came looking for an ORM (object-relational mapper), this is not the library for you. And may the force be with you.
 
 ## Design Goals 
 
