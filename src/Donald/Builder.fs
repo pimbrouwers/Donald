@@ -4,19 +4,22 @@ module Donald.DbCommandBuilder
 open System
 open System.Data
 
+// dbResult {...}
+// ------------
+
 /// Computation expression for DbResult<_>.
 type DbResultBuilder() =
     member _.Return (value) : DbResult<'a> = Ok value
 
     member _.ReturnFrom (result) : DbResult<'a> = result
 
-    member _.Zero () : DbResult<unit> = Ok ()
-
     member _.Delay(fn) : unit -> DbResult<'a> = fn
 
     member _.Run(fn) : DbResult<'a> = fn ()
 
     member _.Bind (result, binder) = DbResult.bind binder result
+
+    member x.Zero () = x.Return ()
 
     member x.TryWith (result, exceptionHandler) = 
         try x.ReturnFrom (result)        
@@ -49,6 +52,58 @@ type DbResultBuilder() =
 
 /// Computation expression for DbResult<_>.
 let dbResult = DbResultBuilder()
+
+// dbResultTask {...}
+// ------------
+
+type DbResultTaskBuilder() =
+    member _.Return (value) : DbResultTask<'a> = DbResultTask.retn value
+
+    member _.ReturnFrom (result) : DbResultTask<'a> = result
+
+    member _.Delay(fn) : unit -> DbResultTask<'a> = fn
+
+    member _.Run(fn) : DbResultTask<'a> = fn ()
+
+    member _.Bind (result, binder) = DbResultTask.bind binder result
+
+    member x.Zero () = x.Return ()
+
+    member x.TryWith (result, exceptionHandler) = 
+        try x.ReturnFrom (result)        
+        with ex -> exceptionHandler ex
+
+    member x.TryFinally (result, fn) = 
+        try x.ReturnFrom (result)        
+        finally fn ()
+
+    member x.Using (disposable : #IDisposable, fn) = 
+        x.TryFinally(fn disposable, fun _ -> 
+            match disposable with 
+            | null -> () 
+            | disposable -> disposable.Dispose()) 
+
+    member x.While (guard,  fn) =
+        if not (guard()) 
+            then x.Zero () 
+        else 
+            do fn () |> ignore
+            x.While(guard, fn)
+
+    member x.For (items : seq<_>, fn) = 
+        x.Using(items.GetEnumerator(), fun enum ->
+            x.While(enum.MoveNext, 
+                x.Delay (fun () -> fn enum.Current)))
+
+    member x.Combine (result, fn) = 
+        x.Bind(result, fun () -> fn ())
+
+
+/// Computation expression for DbResultTask<_>.
+let dbResultTask = DbResultTaskBuilder()
+
+// dbCommand {...}
+// ------------
 
 type CommandSpec<'a> = 
     {

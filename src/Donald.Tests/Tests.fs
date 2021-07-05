@@ -437,3 +437,116 @@ type Statements() =
             return cmds |> Seq.head |> Db.scalar Convert.ToInt32
         }
         |> shouldNotBeError ignore
+
+    [<Fact>]
+    member __.``dbResultTask {...} INSERT author with NULL birth_date`` () =
+        let fullName = "Jameson Doe"
+        let birthDate : DateTime option = None
+
+        let cmd = dbCommand conn {
+            cmdText  "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
+            cmdParam [ 
+                         "full_name", SqlType.String fullName
+                         "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null
+                     ]
+        }
+
+        dbResultTask {
+            do! cmd |> Db.Async.exec
+        }        
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> shouldNotBeError (fun result -> ())
+
+    [<Fact>]
+    member __.``dbResultTask {...} INSERT MANY authors then count to verify`` () =
+        let insertCmd = dbCommand conn {    
+            cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
+        }
+
+        let selectCmd = dbCommand conn {
+            cmdText "SELECT author_id, full_name FROM author WHERE full_name IN ('Jimmer Doe', 'Jer Doe')"
+        }
+                
+        let result = dbResultTask {
+            do! insertCmd |> Db.Async.execMany [
+                [ "full_name", SqlType.String "Jimmer Doe" ]
+                [ "full_name", SqlType.String "Jer Doe" ]
+            ]
+
+            return! selectCmd |> Db.Async.query Author.FromReader
+        }
+        
+        result
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> shouldNotBeError (fun result -> result |> List.length |> should equal 2)
+
+    [<Fact>]
+    member __.``dbResultTask {...} INSERT TRAN author then retrieve to verify`` () =
+        let fullName = "Jolene Doe"
+        let param = [ "full_name", SqlType.String fullName ]
+
+        use tran = conn.TryBeginTransaction()
+
+        let insertCmd = dbCommand conn {
+            cmdText  "INSERT INTO author (full_name) VALUES (@full_name);"
+            cmdParam param
+            cmdTran  tran
+        }
+
+        let selectCmd = dbCommand conn {
+            cmdText  "SELECT author_id, full_name
+                      FROM   author
+                      WHERE  full_name = @full_name;"
+            cmdParam param
+        }
+        
+        let result = dbResultTask {
+            let! _ = insertCmd |> Db.Async.exec
+
+            let! author = selectCmd |> Db.Async.querySingle Author.FromReader
+
+            return author
+        }
+
+        tran.TryCommit()        
+
+        result             
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> shouldNotBeError (fun result -> result.IsSome |> should equal true)
+
+    [<Fact>]
+    member __.``dbResultTask {...} for...do loop`` () =
+        let cmds = 
+            [1..10]
+            |> Seq.map (fun n -> dbCommand conn {
+                cmdText (sprintf "SELECT %i" n)
+            })
+
+        dbResultTask {
+            for cmd in cmds do
+                cmd |> Db.Async.scalar Convert.ToInt32 |> ignore
+        }      
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> shouldNotBeError (fun result -> ())
+
+    [<Fact>]
+    member __.``dbResultTask {...} for...do loop with return`` () =
+        let cmds = 
+            [1..10]
+            |> Seq.map (fun n -> dbCommand conn {
+                cmdText (sprintf "SELECT %i" n)
+            })
+
+        dbResultTask {
+            for cmd in cmds do
+                cmd |> Db.Async.scalar Convert.ToInt32 |> ignore
+
+            return cmds |> Seq.head |> Db.Async.scalar Convert.ToInt32
+        }
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> shouldNotBeError ignore

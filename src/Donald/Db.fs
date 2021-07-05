@@ -59,7 +59,7 @@ module Async =
     open System.Threading.Tasks
     open FSharp.Control.Tasks.V2.ContextInsensitive
 
-    let private tryDoAsync (fn : DbCommand -> Task<'a>) (cmd : IDbCommand) : Task<DbResult<'a>> = task {
+    let private tryDoAsync (fn : DbCommand -> Task<'a>) (cmd : IDbCommand) : DbResultTask<'a> = task {
         try
             cmd.Connection.TryOpenConnection() |> ignore                
             let! result = fn (cmd :?> DbCommand)        
@@ -70,7 +70,7 @@ module Async =
     }
 
     /// Asynchronously execute parameterized query with no results.
-    let exec (cmd : IDbCommand) : Task<DbResult<unit>> = 
+    let exec (cmd : IDbCommand) : DbResultTask<unit> = 
         let inner = fun (cmd : DbCommand) -> task {        
             let! _ = cmd.ExecAsync()
             return ()
@@ -78,7 +78,7 @@ module Async =
         tryDoAsync inner cmd
 
     /// Asynchronously execute parameterized query many times with no results
-    let execMany (param : RawDbParams list) (cmd : IDbCommand) : Task<DbResult<unit>> =         
+    let execMany (param : RawDbParams list) (cmd : IDbCommand) : DbResultTask<unit> =         
         let inner = fun (cmd : DbCommand) -> task {                    
             for p in param do
                 let dbParams = DbParams.create p
@@ -90,7 +90,7 @@ module Async =
         tryDoAsync inner cmd
 
     /// Execute scalar query and box the result.
-    let scalar (convert : obj -> 'a) (cmd : IDbCommand) : Task<DbResult<'a>> =
+    let scalar (convert : obj -> 'a) (cmd : IDbCommand) : DbResultTask<'a> =
         let inner = fun (cmd : DbCommand) -> task {        
             let! value = cmd.ExecuteScalarAsync()
             return convert value
@@ -98,7 +98,7 @@ module Async =
         tryDoAsync inner cmd
 
     /// Asynchronously execute parameterized query, enumerate all records and apply mapping.
-    let query (map : IDataReader -> 'a) (cmd : IDbCommand) : Task<DbResult<'a list>> = 
+    let query (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResultTask<'a list> = 
         let inner = fun (cmd : DbCommand) -> task {        
             use! rd = cmd.ExecReaderAsync()            
             let results = [ while rd.Read() do map rd ]
@@ -108,7 +108,7 @@ module Async =
         tryDoAsync inner cmd
     
     /// Asynchronously execute paramterized query, read only first record and apply mapping.
-    let querySingle (map : IDataReader -> 'a) (cmd : IDbCommand) : Task<DbResult<'a option>> =          
+    let querySingle (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResultTask<'a option> =          
         let inner = fun (cmd : DbCommand) -> task {        
             use! rd = cmd.ExecReaderAsync() 
             let result = if rd.Read() then Some(map rd) else None

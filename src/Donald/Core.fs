@@ -3,6 +3,8 @@ module Donald.Core
 
 open System
 open System.Data.Common
+open System.Threading.Tasks
+open FSharp.Control.Tasks.V2.ContextInsensitive
 
 /// Details of failure to execute database command.
 type DbExecutionError = 
@@ -17,6 +19,20 @@ module DbResult =
         match result with
         | Ok success -> binder success
         | Error err -> Error err
+
+/// Represents the success or failure of an asynchronous database command execution.
+type DbResultTask<'a> = Task<DbResult<'a>>
+
+module DbResultTask =
+    let retn value : DbResultTask<_> = 
+        value |> Ok |> Task.FromResult
+
+    let bind (binder : 'a -> DbResultTask<'b>) (taskResult : DbResultTask<'a>) : DbResultTask<'b> = task {
+        let! result = taskResult
+        match result with 
+        | Ok value -> return! binder value
+        | Error e  -> return (Error e)
+    }
 
 /// Details of failure to cast a IDataRecord field.
 type DataReaderCastError = 
