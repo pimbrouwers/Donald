@@ -6,43 +6,46 @@ open System.Data
 
 /// Computation expression for DbResult<_>.
 type DbResultBuilder() =
-    member _.Return (value : 'a) : DbResult<'a> = Ok value
+    member _.Return (value) : DbResult<'a> = Ok value
 
-    member _.ReturnFrom (result : DbResult<_>) : DbResult<_> = result
-
-    member _.Bind (result : DbResult<_>, fn) : DbResult<_> = Result.bind fn result
+    member _.ReturnFrom (result) : DbResult<'a> = result
 
     member _.Zero () : DbResult<unit> = Ok ()
 
-    member _.Delay(fn : unit -> DbResult<_>) = fn
+    member _.Delay(fn) : unit -> DbResult<'a> = fn
 
-    member _.Run(fn : unit -> DbResult<_>) = fn ()
+    member _.Run(fn) : DbResult<'a> = fn ()
 
-    member x.TryWith (result : DbResult<_>, exceptionHandler : exn -> DbResult<_>) = 
+    member _.Bind (result, binder) = DbResult.bind binder result
+
+    member x.TryWith (result, exceptionHandler) = 
         try x.ReturnFrom (result)        
         with ex -> exceptionHandler ex
 
-    member x.TryFinally (result : DbResult<_>, fn : unit -> unit) = 
+    member x.TryFinally (result, fn) = 
         try x.ReturnFrom (result)        
         finally fn ()
 
-    member x.Using (disposable : #IDisposable, fn : 'a -> DbResult<'b>) = 
+    member x.Using (disposable : #IDisposable, fn) = 
         x.TryFinally(fn disposable, fun _ -> 
             match disposable with 
             | null -> () 
             | disposable -> disposable.Dispose()) 
 
-    member x.While (guard : unit -> bool,  fn : unit -> DbResult<'a>) : DbResult<unit> =
+    member x.While (guard,  fn) =
         if not (guard()) 
             then x.Zero () 
         else 
             do fn () |> ignore
             x.While(guard, fn)
 
-    member x.For (items : seq<_>, fn : 'a -> DbResult<_>) : DbResult<_> = 
+    member x.For (items : seq<_>, fn) = 
         x.Using(items.GetEnumerator(), fun enum ->
             x.While(enum.MoveNext, 
                 x.Delay (fun () -> fn enum.Current)))
+
+    member x.Combine (result, fn) = 
+        x.Bind(result, fun () -> fn ())
 
 /// Computation expression for DbResult<_>.
 let dbResult = DbResultBuilder()

@@ -421,3 +421,19 @@ type Statements() =
                 cmd |> Db.scalar Convert.ToInt32 |> ignore
         }        
         |> shouldNotBeError (fun result -> ())
+
+    [<Fact>]
+    member __.``dbResult {...} for...do loop with return`` () =
+        let cmds = 
+            [1..10]
+            |> Seq.map (fun n -> dbCommand conn {
+                cmdText (sprintf "SELECT %i" n)
+            })
+
+        dbResult {
+            for cmd in cmds do
+                cmd |> Db.scalar Convert.ToInt32 |> ignore
+
+            return cmds |> Seq.head |> Db.scalar Convert.ToInt32
+        }
+        |> shouldNotBeError ignore

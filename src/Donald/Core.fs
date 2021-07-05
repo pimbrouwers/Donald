@@ -12,6 +12,12 @@ type DbExecutionError =
 /// Represents the success or failure of a database command execution.
 type DbResult<'a> = Result<'a, DbExecutionError>
 
+module DbResult =
+    let bind (binder : 'a -> DbResult<'b>) (result : DbResult<'a>) : DbResult<'b> = 
+        match result with
+        | Ok success -> binder success
+        | Error err -> Error err
+
 /// Details of failure to cast a IDataRecord field.
 type DataReaderCastError = 
     { FieldName : string 
