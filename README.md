@@ -196,7 +196,7 @@ let selectCmd = dbCommand conn {
     cmdText "SELECT  author_id
                    , full_name 
              FROM    author 
-             WHERE   full_name = @author_id"
+             WHERE   full_name = @full_name"
     cmdParam param
     cmdTran  tran
 } 
