@@ -211,6 +211,19 @@ let result = dbResult {
 tran.TryCommit() // or, safely rollback tran.TryRollback()
 ```
 
+This functionality also fully support task-based asynchronous workflows via `dbResultTask { ... }`:
+
+```fsharp
+// ... rest of code from above
+
+let result = dbResultTask {
+  do! insertCmd |> Db.Async.exec 
+  return! selectCmd |> Db.Async.querySingle Author.fromDataReader
+}
+
+// ... rest of code from above
+```
+
 ## Command Builder
 
 At the core of Donald is a computation expression for building `IDbCommand` instances. It exposes five modification points:
