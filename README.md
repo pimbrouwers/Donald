@@ -177,7 +177,7 @@ dbCommand conn {
 
 Donald exposes most of it's functionality through `dbCommand { ... }` and the `Db` module. But three type extension methods are exposed to make dealing with transactions safer.
 
-> Donald contains a computation expression `dbResult { ... }` for dealing with `DbResult<'a>' instances, which is especially useful when you are working with dependent commands, which is common during transactional work.
+> Donald contains a computation expression `dbResult { ... }` for dealing with `DbResult<'a>' instances, which is especially useful when you are working with dependent commands, common during transactional work.
 
 ```fsharp
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
