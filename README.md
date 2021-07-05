@@ -175,9 +175,13 @@ dbCommand conn {
 
 ### Execute statements within an explicit transaction
 
-Donald exposes most of it's functionality through `dbCommand { ... }` and the `Db` module. But three type extension methods are exposed to make dealing with transactions safer.
+Donald exposes most of it's functionality through `dbCommand { ... }` and the `Db` module. But three `IDbTransaction` type extension are exposed to make dealing with transactions safer:
 
-Donald contains a computation expression `dbResult { ... }` for dealing with `DbResult<'a>` instances, which is especially useful when you are working with dependent commands, common during transactional work.
+- `TryBeginTransaction()` opens a new transaction or raises `CouldNotBeginTransactionError` 
+- `TryCommit()` commits a transaction or raises `CouldNotCommitTransactionError` and rolls back
+- `TryRollback()` rolls back a transaction or raises `CouldNotRollbackTransactionError`
+
+The library also contains a computation expression `dbResult { ... }` for dealing with `DbResult<'a>` instances, which is especially useful when you are working with dependent commands, common during transactional work.
 
 ```fsharp
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
