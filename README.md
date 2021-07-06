@@ -13,13 +13,13 @@ This library is named after him.
 
 ## Key Features
 
-Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO implementations.
+Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) safer and *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO.NET implementations.
 
-The library is delivered as a [computation expression](#command-builder) responsible for building `IDbCommand` instances, which is executed using the `Db` module.
+The library is delivered as multiple computation expressions responsible for [building `IDbCommand` instances](#command-builder), executed using the `Db` module and two [result-based expressions](#execute-statements-within-an-explicit-transaction) for helping with dependent commands (avoiding the dreaded "Pyramid of Doom").
 
 Two sets of type [extensions](#reading-values) for `IDataReader` are included to make manual object mapping a lot easier.
 
-> If you came looking for an ORM, this is not your light saber. And may the force be with you.
+> If you came looking for an ORM (object-relational mapper), this is not the library for you. And may the force be with you.
 
 ## Design Goals 
 
@@ -175,9 +175,13 @@ dbCommand conn {
 
 ### Execute statements within an explicit transaction
 
-Donald exposes most of it's functionality through `dbCommand { ... }` and the `Db` module. But three type extension methods are exposed to make dealing with transactions safer.
+Donald exposes most of it's functionality through `dbCommand { ... }` and the `Db` module. But three `IDbTransaction` type extension are exposed to make dealing with transactions safer:
 
-> Donald contains a computation expression `dbResult { ... }` for dealing with `DbResult<'a>' instances, which is especially useful when you are working with dependent commands, common during transactional work.
+- `TryBeginTransaction()` opens a new transaction or raises `CouldNotBeginTransactionError` 
+- `TryCommit()` commits a transaction or raises `CouldNotCommitTransactionError` and rolls back
+- `TryRollback()` rolls back a transaction or raises `CouldNotRollbackTransactionError`
+
+The library also contains a computation expression `dbResult { ... }` for dealing with `DbResult<'a>` instances, which is especially useful when you are working with dependent commands, common during transactional work.
 
 ```fsharp
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
@@ -196,7 +200,7 @@ let selectCmd = dbCommand conn {
     cmdText "SELECT  author_id
                    , full_name 
              FROM    author 
-             WHERE   full_name = @author_id"
+             WHERE   full_name = @full_name"
     cmdParam param
     cmdTran  tran
 } 
