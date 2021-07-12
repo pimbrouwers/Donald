@@ -11,7 +11,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Donald.Tests", "src\Donald.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{52BD766E-7A81-46BE-86D9-FCE4F54D185F}"
 	ProjectSection(SolutionItems) = preProject
-		.travis.yml = .travis.yml
+		.github\workflows\build.yml = .github\workflows\build.yml
 		README.md = README.md
 	EndProjectSection
 EndProject

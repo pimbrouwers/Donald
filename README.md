@@ -1,7 +1,7 @@
 # Donald
 
 [![NuGet Version](https://img.shields.io/nuget/v/Donald.svg)](https://www.nuget.org/packages/Donald)
-[![Build Status](https://travis-ci.org/pimbrouwers/Donald.svg?branch=master)](https://travis-ci.org/pimbrouwers/Donald)
+[![build](https://github.com/pimbrouwers/Donald/actions/workflows/build.yml/badge.svg)](https://github.com/pimbrouwers/Donald/actions/workflows/build.yml)
 
 Meet [Donald](https://en.wikipedia.org/wiki/Donald_D._Chamberlin). 
 
