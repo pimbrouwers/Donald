@@ -2,17 +2,8 @@
 module Donald.Transaction
 
 open System.Data
-open System.Data.Common
 
 type IDbTransaction with
-    member internal this.NewCommand(commandType : CommandType, sql : string, commandTimeout : int option) =
-        let cmd = this.Connection.NewCommand(commandType, sql, commandTimeout)
-        cmd.Transaction <- this
-        cmd
-
-    member internal this.NewDbCommand(commandType : CommandType, sql : string, commandTimeout : int option) =
-        this.NewCommand(commandType, sql, commandTimeout) :?> DbCommand
-
     /// Safely attempt to rollback an IDbTransaction.
     member this.TryRollback() =
         try        

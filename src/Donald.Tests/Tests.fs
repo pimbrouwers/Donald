@@ -38,9 +38,10 @@ type DbFixture () =
         use sr = new StreamReader(fs)
         let sql = sr.ReadToEnd()
 
-        dbCommand conn { 
-            cmdText sql
-        }        
+        conn
+        |> Db.newCommand sql
+        |> Db.setTimeout 30
+        |> Db.setCommandType CommandType.Text        
         |> Db.exec 
         |> ignore
                   
@@ -114,10 +115,13 @@ type Statements() =
                 p_date_time = rd.ReadDateTimeOption "p_date_time" 
             |}
 
-        dbCommand conn {
-            cmdText sql
-            cmdParam param            
-        }
+        //dbCommand conn {
+        //    cmdText sql
+        //    cmdParam param            
+        //}
+        conn 
+        |> Db.newCommand sql
+        |> Db.setParams param
         |> Db.querySingle map
         |> shouldNotBeError (fun result -> result.IsSome |> should equal true)
                            
@@ -382,19 +386,23 @@ type Statements() =
 
         use tran = conn.TryBeginTransaction()
 
-        let insertCmd = dbCommand conn {
-            cmdText  "INSERT INTO author (full_name) VALUES (@full_name);"
-            cmdParam param
-            cmdTran  tran
-        }
+        let insertCmd = 
+            let sql = "INSERT INTO author (full_name) VALUES (@full_name);"
+            conn
+            |> Db.newCommand sql
+            |> Db.setParams param
+            |> Db.setTransaction tran
 
-        let selectCmd = dbCommand conn {
-            cmdText  "SELECT author_id, full_name
-                      FROM   author
-                      WHERE  full_name = @full_name;"
-            cmdParam param
-        }
-        
+        let selectCmd = 
+            let sql = "
+            SELECT author_id, full_name
+            FROM   author
+            WHERE  full_name = @full_name;"
+
+            conn 
+            |> Db.newCommand sql
+            |> Db.setParams param
+                
         let result = dbResult {
             let! _ = insertCmd |> Db.exec
 
