@@ -15,7 +15,7 @@ This library is named after him.
 
 Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) safer and *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO.NET implementations.
 
-The library is delivered as multiple computation expressions responsible for [building `IDbCommand` instances](#command-builder), executed using the `Db` module and two [result-based expressions](#execute-statements-within-an-explicit-transaction) for helping with dependent commands (avoiding the dreaded "Pyramid of Doom").
+The library includes multiple computation expressions responsible for [building `IDbCommand` instances](#command-builder), executed using the `Db` module and two [result-based expressions](#execute-statements-within-an-explicit-transaction) for helping with dependent commands (avoiding the dreaded "Pyramid of Doom").
 
 Two sets of type [extensions](#reading-values) for `IDataReader` are included to make manual object mapping a lot easier.
 
@@ -47,28 +47,27 @@ dotnet add package Donald
 ```fsharp
 open Donald
 
-type Author = 
-    { FullName : string }
-
-    static member Create fullName =
-        { FullName = fullName }
+type Author = { FullName : string }
 
 module Author =
-  let fromDataReader (rd : IDataReader) =
-      let fullName = rd.ReadString "full_name" 
-      Author.Create fullName
-
-use conn = new SQLiteConnection("{your connection string}")
+  let ofDataReader (rd : IDataReader) : Author =      
+      { FullName = rd.ReadString "full_name" }
 
 let authors : DbResult<Author list> =    
-    dbCommand conn {
-        cmdText  "SELECT  author_id
-                        , full_name 
-                  FROM    author 
-                  WHERE   author_id = @author_id"
-        cmdParam  [ "author_id", SqlType.Int 1]
-    }
-    |> Db.query Author.fromDataReader
+    let sql = "
+    SELECT  author_id
+          , full_name 
+    FROM    author 
+    WHERE   author_id = @author_id"
+
+    let param = [ "author_id", SqlType.Int 1]
+
+    use conn = new SQLiteConnection("{your connection string}")
+    
+    conn
+    |> Db.newCommand sql
+    |> Db.setParams param    
+    |> Db.query Author.ofDataReader
 ```
 
 ## An Example using SQLite
@@ -84,41 +83,44 @@ type Author =
     { AuthorId : int
       FullName : string }
 
-    static member Create authorId fullName =
-        { AuthorId = authorId
-          FullName = fullName }
-    
-module Author
-    let fromDataReader (rd : IDataReader) : Author = 
-        // IDataReader extension method (see below)
-        let authorId = rd.ReadInt32 "author_id"
-        let fullName = rd.ReadString "full_name"
-          
-        Author.Create authorId fullName
+module Author -
+    let ofDataReader (rd : IDataReader) : Author =         
+        { AuthorId = rd.ReadInt32 "author_id"
+          FullName = rd.ReadString "full_name" }
 ```
 
 ### Query for multiple strongly-typed results
 
 ```fsharp
+// Fluent
+conn
+|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.query Author.ofDataReader // DbResult<Author list>
+
+// Expression
 dbCommand conn {
     cmdText "SELECT  author_id
                    , full_name 
              FROM    author"
 }
-|> Db.query Author.fromDataReader // DbResult<Author list>
+|> Db.query Author.ofDataReader // DbResult<Author list>
 
 // Async
-dbCommand conn {
-    cmdText "SELECT  author_id
-                   , full_name 
-             FROM    author"
-}
-|> Db.Async.query Author.fromDataReader // Task<DbResult<Author list>>
+conn
+|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.Async.query Author.ofDataReader // Task<DbResult<Author list>>
 ```
 
 ### Query for a single strongly-typed result
 
 ```fsharp
+// Fluent
+conn
+|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.setParams [ "author_id", SqlType.Int 1 ]
+|> Db.querySingle Author.ofDataReader // DbResult<Author option>
+
+// Expression
 dbCommand conn {
     cmdText "SELECT  author_id
                    , full_name 
@@ -126,22 +128,25 @@ dbCommand conn {
              WHERE   author_id = @author_id"
     cmdParam [ "author_id", SqlType.Int 1]
 } 
-|> Db.querySingle Author.fromDataReader // DbResult<Author option>
+|> Db.querySingle Author.ofDataReader // DbResult<Author option>
 
 // Async
-dbCommand conn {
-    cmdText "SELECT  author_id
-                   , full_name 
-             FROM    author 
-             WHERE   author_id = @author_id"
-    cmdParam [ "author_id", SqlType.Int 1]
-} 
-|> Db.Async.querySingle Author.fromDataReader // Task<DbResult<Author option>>
+conn
+|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.setParams [ "author_id", SqlType.Int 1 ]
+|> Db.Async.querySingle Author.ofDataReader // Task<DbResult<Author option>>
 ```
 
 ### Execute a statement
 
 ```fsharp
+// Fluent
+conn
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
+|> Db.exec // DbResult<unit>
+
+// Expression 
 dbCommand conn {
     cmdText "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
@@ -149,16 +154,22 @@ dbCommand conn {
 |> Db.exec // DbResult<unit>
 
 // Async
-dbCommand conn {
-    cmdText "INSERT INTO author (full_name)"
-    cmdParam [ "full_name", SqlType.String "John Doe" ]
-}
+conn
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
 |> Db.Async.exec // Task<DbResult<unit>>
 ```
 
 ### Execute a statement many times
 
 ```fsharp
+// Flient
+conn
+|> Db.newCommand "INSERT INTO author (full_name)" 
+|> Db.execMany [ "full_name", SqlType.String "John Doe"
+                 "full_name", SqlType.String "Jane Doe" ]
+
+// Expression
 dbCommand conn {
    cmdText "INSERT INTO author (full_name)" 
 }
@@ -166,9 +177,8 @@ dbCommand conn {
                  "full_name", SqlType.String "Jane Doe" ]
 
 // Async
-dbCommand conn {
-   cmdText "INSERT INTO author (full_name)" 
-}
+conn
+|> Db.newCommand "INSERT INTO author (full_name)" 
 |> Db.Async.execMany [ "full_name", SqlType.String "John Doe"
                        "full_name", SqlType.String "Jane Doe" ]                           
 ```
@@ -208,7 +218,7 @@ let selectCmd = dbCommand conn {
 // Execute IDbCommand's
 let result = dbResult {
   do! insertCmd |> Db.exec 
-  return! selectCmd |> Db.querySingle Author.fromDataReader
+  return! selectCmd |> Db.querySingle Author.ofDataReader
 }
 
 // Attempt to commit, rollback on failure and throw CouldNotCommitTransactionError
@@ -222,7 +232,7 @@ This functionality also fully support task-based asynchronous workflows via `dbR
 
 let result = dbResultTask {
   do! insertCmd |> Db.Async.exec 
-  return! selectCmd |> Db.Async.querySingle Author.fromDataReader
+  return! selectCmd |> Db.Async.querySingle Author.ofDataReader
 }
 
 // ... rest of code from above

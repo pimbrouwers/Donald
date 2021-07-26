@@ -3,6 +3,31 @@ module Donald.Db
 
 open System.Data
 
+/// Create a new IDbCommand instance using the provided IDbConnection.
+let newCommand (commandText : string) (conn : IDbConnection) =
+    let cmd = conn.CreateCommand()
+    cmd.CommandText <- commandText    
+    cmd
+
+/// Configure the CommandType for the provided IDbCommand
+let setCommandType (commandType : CommandType) (cmd : IDbCommand) = 
+    cmd.CommandType <- commandType
+    cmd 
+
+/// Configure the command parameters for the provided IDbCommand
+let setParams (param : RawDbParams) (cmd : IDbCommand) =    
+    cmd.SetDbParams(DbParams.create param)
+
+/// Configure the timeout for the provided IDbCommand
+let setTimeout (commandTimeout : int) (cmd : IDbCommand) =
+    cmd.CommandTimeout <- commandTimeout
+    cmd
+
+/// Configure the transaction for the provided IDbCommand
+let setTransaction (tran : IDbTransaction) (cmd : IDbCommand) =
+    cmd.Transaction <- tran
+    cmd
+
 let private tryDo (fn : IDbCommand -> 'a) (cmd : IDbCommand) : DbResult<'a> =
     try
         cmd.Connection.TryOpenConnection() |> ignore    

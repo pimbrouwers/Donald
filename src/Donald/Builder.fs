@@ -128,18 +128,19 @@ type CommandSpec<'a> =
 type DbCommandBuilder<'a>(conn : IDbConnection) =
     member _.Yield(_) = CommandSpec<'a>.Create (conn)
 
-    member _.Run(spec : CommandSpec<'a>) = 
-        let param = DbParams.create spec.Param
-        match spec.Transaction with 
-        | Some tran -> 
-            tran.NewCommand(spec.CommandType, spec.Statement, spec.CommandTimeout)
-                .SetDbParams(param)
-        
-        | None ->
+    member _.Run(spec : CommandSpec<'a>) =         
+        let cmd = 
             spec.Connection
-                .NewCommand(spec.CommandType, spec.Statement, spec.CommandTimeout)
-                .SetDbParams(param)
-
+            |> Db.newCommand spec.Statement
+            |> Db.setCommandType spec.CommandType
+            |> Db.setParams spec.Param
+            
+        match spec.Transaction, spec.CommandTimeout with 
+        | Some tran, Some timeout -> cmd |> Db.setTimeout timeout |> Db.setTransaction tran 
+        | Some tran, None         -> Db.setTransaction tran cmd
+        | None, Some timeout      -> Db.setTimeout timeout cmd
+        | None, None              -> cmd
+        
     [<CustomOperation("cmdParam")>]
     /// Add DbParams.
     member _.DbParams (spec : CommandSpec<'a>, param : RawDbParams) =
