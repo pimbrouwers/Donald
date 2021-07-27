@@ -5,7 +5,6 @@ open System
 open System.Data
 open System.Data.Common
 open System.Threading.Tasks
-open FSharp.Control.Tasks.V2.ContextInsensitive
 
 type IDbCommand with
     member internal this.SetDbParams(dbParams : DbParams) =
@@ -102,13 +101,11 @@ type IDbCommand with
         this.TryDo (fun this -> this.ExecuteReader(cmdBehaviour |> Option.defaultValue CommandBehavior.SequentialAccess))
 
 type DbCommand with
-    member private this.TryDoAsync (fn : DbCommand -> Task<'a>) : Task<'a> = task {
+    member private this.TryDoAsync (fn : DbCommand -> Task<'a>) : Task<'a> = 
         try 
-            return! fn this             
+            fn this             
         with
-        | :? DbException as ex -> 
-            return raise (FailedExecutionError ({ Statement = this.CommandText; Error = ex }))
-    }
+        | :? DbException as ex -> raise (FailedExecutionError ({ Statement = this.CommandText; Error = ex }))    
 
     member internal this.SetDbParams(param : DbParams) =
         (this :> IDbCommand).SetDbParams(param) :?> DbCommand
