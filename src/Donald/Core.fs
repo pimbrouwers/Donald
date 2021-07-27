@@ -4,7 +4,14 @@ module Donald.Core
 open System
 open System.Data.Common
 open System.Threading.Tasks
-open FSharp.Control.Tasks.V2.ContextInsensitive
+
+let inline internal continueWith (continuation : Task<'a> -> 'b) (task : Task<'a>) =  
+    task.ContinueWith(continuation, TaskContinuationOptions.OnlyOnRanToCompletion)
+
+let inline internal continueWithTask (continuation : Task<'a> -> Task<'b>) (task : Task<'a>) =
+    let taskResult = task |> continueWith continuation
+    taskResult.Wait () 
+    taskResult.Result
 
 /// Details of failure to execute database command.
 type DbExecutionError = 
@@ -27,12 +34,14 @@ module DbResultTask =
     let retn value : DbResultTask<_> = 
         value |> Ok |> Task.FromResult
 
-    let bind (binder : 'a -> DbResultTask<'b>) (taskResult : DbResultTask<'a>) : DbResultTask<'b> = task {
-        let! result = taskResult
-        match result with 
-        | Ok value -> return! binder value
-        | Error e  -> return (Error e)
-    }
+    let bind (binder : 'a -> DbResultTask<'b>) (taskResult : DbResultTask<'a>) : DbResultTask<'b> = 
+        let continuation (resultTask : Task<DbResult<'a>>) =
+            match resultTask.Result with 
+            | Ok value -> binder value
+            | Error e  -> Error e |> Task.FromResult
+
+        taskResult
+        |> continueWithTask continuation 
 
 /// Details of failure to cast a IDataRecord field.
 type DataReaderCastError = 
