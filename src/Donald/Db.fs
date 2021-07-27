@@ -78,7 +78,7 @@ let querySingle (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a optio
             result) 
         cmd    
 
-/// Execute paramterized query and return IDataReader
+/// Execute paramterized query and return IDataReader using CommandBehaviour.Default
 let read (cmd : IDbCommand) : IDataReader =
     cmd.ExecReader(CommandBehavior.Default)
 
@@ -148,7 +148,7 @@ module Async =
         
         tryDoAsync inner cmd       
         
-    /// Asynchronously execute paramterized query and return IDataReader
+    /// Asynchronously execute paramterized query and return IDataReader using CommandBehaviour.Default
     let read (cmd : IDbCommand) : Task<IDataReader> =
         let dbCmd = cmd :?> DbCommand
         dbCmd.ExecReaderAsync(CommandBehavior.Default)
