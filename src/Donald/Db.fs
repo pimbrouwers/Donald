@@ -59,7 +59,6 @@ let scalar (convert : obj -> 'a) (cmd : IDbCommand) : DbResult<'a> =
         convert value)
         cmd
 
-
 /// Execute parameterized query, enumerate all records and apply mapping.
 let query (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a list> =   
     tryDo (fun cmd ->     
@@ -79,11 +78,14 @@ let querySingle (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a optio
             result) 
         cmd    
 
+/// Execute paramterized query and return IDataReader
+let read (cmd : IDbCommand) : IDataReader =
+    cmd.ExecReader(CommandBehavior.Default)
+
 module Async =
     open System.Data.Common
     open System.Threading.Tasks
-    //open FSharp.Control.Tasks.V2.ContextInsensitive
-
+    
     let private tryDoAsync (fn : DbCommand -> Task<'a>) (cmd : IDbCommand) : DbResultTask<'a> = 
         try
             let continuation (resultTask : Task<'a>) = 
@@ -144,4 +146,10 @@ module Async =
             cmd.ExecReaderAsync() 
             |> continueWith continuation
         
-        tryDoAsync inner cmd            
+        tryDoAsync inner cmd       
+        
+    /// Asynchronously execute paramterized query and return IDataReader
+    let read (cmd : IDbCommand) : Task<IDataReader> =
+        let dbCmd = cmd :?> DbCommand
+        dbCmd.ExecReaderAsync(CommandBehavior.Default)
+        |> continueWith (fun rd -> rd.Result :> IDataReader)
