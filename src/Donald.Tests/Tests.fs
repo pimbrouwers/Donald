@@ -558,3 +558,39 @@ type Statements() =
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> shouldNotBeError ignore
+
+    [<Fact>]
+    member __.``Returning IDataReader via read`` () =                    
+        let sql = "
+        SELECT author_id, full_name
+        FROM   author
+        WHERE  author_id IN (1,2)"
+        
+        use rd = 
+            conn 
+            |> Db.newCommand sql
+            |> Db.read 
+
+        let result = [ while rd.Read() do Author.FromReader rd ]
+
+        result 
+        |> (fun result -> result.Length |> should equal 2)
+
+    [<Fact>]
+    member __.``Returning Task<IDataReader> via async read`` () =                    
+        let sql = "
+        SELECT author_id, full_name
+        FROM   author
+        WHERE  author_id IN (1,2)"
+        
+        use rd = 
+            conn 
+            |> Db.newCommand sql
+            |> Db.Async.read 
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+
+        let result = [ while rd.Read() do Author.FromReader rd ]
+
+        result 
+        |> (fun result -> result.Length |> should equal 2)
