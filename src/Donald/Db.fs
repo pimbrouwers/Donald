@@ -60,19 +60,19 @@ let scalar (convert : obj -> 'a) (cmd : IDbCommand) : DbResult<'a> =
         cmd
 
 /// Execute parameterized query, enumerate all records and apply mapping.
-let query (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a list> =   
+let query (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : DbResult<'a list> =   
     tryDo (fun cmd ->     
-        use rd = cmd.ExecReader()
+        use rd = cmd.ExecReader() :?> 'reader
         let results = [ while rd.Read() do yield map rd ]
         rd.Close() |> ignore
         results) 
         cmd
 
 /// Execute paramterized query, read only first record and apply mapping.
-let querySingle (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a option> =    
+let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : DbResult<'a option> =    
     tryDo 
         (fun cmd ->     
-            use rd = cmd.ExecReader()
+            use rd = cmd.ExecReader() :?> 'reader
             let result = if rd.Read() then Some(map rd) else None
             rd.Close() |> ignore
             result) 
@@ -82,7 +82,7 @@ let querySingle (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResult<'a optio
 let read (cmd : IDbCommand) : IDataReader =
     cmd.ExecReader(CommandBehavior.Default)
 
-module Async =
+module Async =   
     open System.Data.Common
     open System.Threading.Tasks
     
@@ -93,7 +93,8 @@ module Async =
                 Ok resultTask.Result
 
             cmd.Connection.TryOpenConnection() |> ignore                
-            fn (cmd :?> DbCommand)                    
+            
+            fn (cmd :?> DbCommand)
             |> continueWith continuation
         with 
         | FailedExecutionError e -> Error e |> Task.FromResult
@@ -105,8 +106,8 @@ module Async =
 
     /// Asynchronously execute parameterized query many times with no results
     let execMany (param : RawDbParams list) (cmd : IDbCommand) : DbResultTask<unit> =         
-        let inner = fun (cmd : DbCommand) -> 
-            let tasks = [| for p in param do cmd.SetDbParams(DbParams.create p).ExecAsync() |]
+        let inner = fun (cmd' : DbCommand) -> 
+            let tasks = [| for p in param do cmd'.SetDbParams(DbParams.create p).ExecAsync() |]
             Task.WhenAll(tasks) 
             |> continueWith (fun _ -> ())
         
@@ -121,10 +122,10 @@ module Async =
         tryDoAsync inner cmd
 
     /// Asynchronously execute parameterized query, enumerate all records and apply mapping.
-    let query (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResultTask<'a list> = 
+    let query (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : DbResultTask<'a list> = 
         let inner = fun (cmd : DbCommand) ->
             let continuation (readerTask : Task<DbDataReader>) = 
-                use rd = readerTask.Result
+                use rd = readerTask.Result :?> 'reader
                 let results = [ while rd.Read() do map rd ]
                 rd.Close() |> ignore
                 results
@@ -135,10 +136,10 @@ module Async =
         tryDoAsync inner cmd
     
     /// Asynchronously execute paramterized query, read only first record and apply mapping.
-    let querySingle (map : IDataReader -> 'a) (cmd : IDbCommand) : DbResultTask<'a option> =          
+    let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : DbResultTask<'a option> =          
         let inner = fun (cmd : DbCommand) -> 
             let continuation (readerTask : Task<DbDataReader>) =
-                use rd = readerTask.Result
+                use rd = readerTask.Result :?> 'reader
                 let result = if rd.Read() then Some(map rd) else None
                 rd.Close() |> ignore
                 result
@@ -148,8 +149,7 @@ module Async =
         
         tryDoAsync inner cmd       
         
-    /// Asynchronously execute paramterized query and return IDataReader using CommandBehaviour.Default
-    let read (cmd : IDbCommand) : Task<IDataReader> =
-        let dbCmd = cmd :?> DbCommand
-        dbCmd.ExecReaderAsync(CommandBehavior.Default)
+    /// Asynchronously execute paramterized query and return IDataReader
+    let read (cmd : IDbCommand) : Task<IDataReader> =           
+        (cmd :?> DbCommand).ExecReaderAsync(CommandBehavior.Default)
         |> continueWith (fun rd -> rd.Result :> IDataReader)
