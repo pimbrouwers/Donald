@@ -6,7 +6,7 @@ open System.Data
 type IDbConnection with
     /// Safely attempt to open a new IDbTransaction or
     /// return CouldNotOpenConnectionError.
-    member inline this.TryOpenConnection()  =        
+    member this.TryOpenConnection()  =        
         try
             if this.State = ConnectionState.Closed then 
                 this.Open()             
@@ -18,7 +18,7 @@ type IDbConnection with
 
     /// Safely attempt to create a new IDbTransaction or
     /// return CouldNotBeginTransactionError.
-    member inline this.TryBeginTransaction()  =        
+    member this.TryBeginTransaction()  =        
         try
             this.TryOpenConnection()
             this.BeginTransaction()
