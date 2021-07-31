@@ -264,7 +264,6 @@ rd.ReadBoolean "some_field"          // string -> bool
 rd.ReadByte "some_field"             // string -> byte
 rd.ReadChar "some_field"             // string -> char
 rd.ReadDateTime "some_field"         // string -> DateTime
-rd.ReadDateTimeOffset "some_field"   // string -> DateTimeOffset
 rd.ReadDecimal "some_field"          // string -> Decimal
 rd.ReadDouble "some_field"           // string -> Double
 rd.ReadFloat "some_field"            // string -> float32
@@ -279,7 +278,6 @@ rd.ReadBooleanOption "some_field"        // string -> bool option
 rd.ReadByteOption "some_field"           // string -> byte option
 rd.ReadCharOption "some_field"           // string -> char option
 rd.ReadDateTimeOption "some_field"       // string -> DateTime option
-rd.ReadDateTimeOffsetOption "some_field" // string -> DateTimeOffset option
 rd.ReadDecimalOption "some_field"        // string -> Decimal option
 rd.ReadDoubleOption "some_field"         // string -> Double option
 rd.ReadFloatOption "some_field"          // string -> float32 option

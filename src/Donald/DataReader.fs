@@ -5,6 +5,8 @@ open System
 open System.Data
 open System.IO
 
+#nowarn "44"
+
 /// Option type extensions
 module Option =
     let asNullable<'a when 'a : struct and 'a : (new : unit -> 'a)  and 'a :> ValueType> 
@@ -52,6 +54,7 @@ type IDataReader with
         name |> this.GetOption (fun i -> this.GetDateTime(i))    
     
     /// Safely retrieve DateTimeOffset Option
+    [<Obsolete>]
     member this.ReadDateTimeOffsetOption (name : string) = 
         this.ReadStringOption name |> Option.map (fun dt -> snd(DateTimeOffset.TryParse dt))
     
@@ -108,6 +111,7 @@ type IDataReader with
         this.ReadDateTimeOption name |> Option.defaultValue DateTime.MinValue
     
     /// Safely retrieve DateTimeOffset or return provided default 
+    [<Obsolete>]
     member this.ReadDateTimeOffset (name : string) =
         this.ReadDateTimeOffsetOption name |> Option.defaultValue DateTimeOffset.MinValue
     
