@@ -5,18 +5,27 @@ open System
 open System.Data.Common
 open System.Threading.Tasks
 
-let inline internal continueWith (continuation : Task<'a> -> 'b) (task : Task<'a>) =  
-    task.ContinueWith(continuation, TaskContinuationOptions.OnlyOnRanToCompletion)
-
-let inline internal continueWithTask (continuation : Task<'a> -> Task<'b>) (task : Task<'a>) =
-    let taskResult = task |> continueWith continuation
-    taskResult.Wait () 
-    taskResult.Result
+/// Details of failure to connection to a database/server.
+type DbConnectionError = 
+    { ConnectionString : string
+      Error            : exn }
 
 /// Details of failure to execute database command.
 type DbExecutionError = 
     { Statement : string
       Error     : DbException }
+
+/// Details of failure to cast a IDataRecord field.
+type DataReaderCastError = 
+    { FieldName : string 
+      Error     : InvalidCastException }
+
+exception CouldNotOpenConnectionError of DbConnectionError
+exception CouldNotBeginTransactionError of exn
+exception CouldNotCommitTransactionError of exn
+exception CouldNotRollbackTransactionError of exn
+exception FailedExecutionError of DbExecutionError
+exception FailiedCastException of DataReaderCastError
 
 /// Represents the success or failure of a database command execution.
 type DbResult<'a> = Result<'a, DbExecutionError>
@@ -31,31 +40,21 @@ module DbResult =
 type DbResultTask<'a> = Task<DbResult<'a>>
 
 module DbResultTask =
+    open FSharp.Control.Tasks
+
     let retn value : DbResultTask<_> = 
         value |> Ok |> Task.FromResult
 
     let bind (binder : 'a -> DbResultTask<'b>) (taskResult : DbResultTask<'a>) : DbResultTask<'b> = 
-        let continuation (resultTask : Task<DbResult<'a>>) =
-            match resultTask.Result with 
-            | Ok value -> binder value
-            | Error e  -> Error e |> Task.FromResult
-
-        taskResult
-        |> continueWithTask continuation 
-
-/// Details of failure to cast a IDataRecord field.
-type DataReaderCastError = 
-    { FieldName : string 
-      Error     : InvalidCastException }
-
-exception ConnectionBusyError
-exception CouldNotOpenConnectionError of exn
-exception CouldNotBeginTransactionError of exn
-exception CouldNotCommitTransactionError of exn
-exception CouldNotRollbackTransactionError of exn
-exception FailedExecutionError of DbExecutionError
-exception FailiedCastException of DataReaderCastError
-  
+        task {
+            let! result = taskResult            
+            match result with 
+            | Error e  -> return Error e            
+            | Ok value -> 
+                let! bound = binder value
+                return bound
+        }
+          
 /// Represents the supported data types for database IO.
 type SqlType =
     | Null       

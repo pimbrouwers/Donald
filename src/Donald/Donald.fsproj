@@ -20,7 +20,7 @@
 
     <!-- NuGet config -->
     <PackageId>Donald</PackageId>
-    <PackageVersion>6.2.3</PackageVersion>
+    <PackageVersion>6.2.4</PackageVersion>
     <PackageTags>fsharp;functional;database;sql;ado;adonet</PackageTags>        
     <PackageProjectUrl>https://github.com/pimbrouwers/Donald</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -38,6 +38,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="Tasks.fs" />
     <Compile Include="Core.fs" />
     <Compile Include="Connection.fs" />
     <Compile Include="Transaction.fs" />

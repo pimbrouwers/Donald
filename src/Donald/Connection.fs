@@ -4,14 +4,20 @@ module Donald.Conection
 open System.Data 
 
 type IDbConnection with
-    member internal this.TryOpenConnection()  =        
+    /// Safely attempt to open a new IDbTransaction or
+    /// return CouldNotOpenConnectionError.
+    member this.TryOpenConnection()  =        
         try
             if this.State = ConnectionState.Closed then 
                 this.Open()             
         with ex -> 
-            raise (CouldNotOpenConnectionError ex) 
+            let error = 
+                { ConnectionString = this.ConnectionString 
+                  Error = ex }
+            raise (CouldNotOpenConnectionError error) 
 
-    /// Safely attempt to create a new IDbTransaction.
+    /// Safely attempt to create a new IDbTransaction or
+    /// return CouldNotBeginTransactionError.
     member this.TryBeginTransaction()  =        
         try
             this.TryOpenConnection()

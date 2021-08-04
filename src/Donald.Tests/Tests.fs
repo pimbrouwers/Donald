@@ -270,10 +270,9 @@ type Statements() =
         dbCommand conn {    
             cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
         }
-        |> Db.execMany [
-                               [ "full_name", SqlType.String "Bugs Bunny" ]
-                               [ "full_name", SqlType.String "Donald Duck" ]
-                           ]
+        |> Db.execMany 
+            [ [ "full_name", SqlType.String "Bugs Bunny" ]
+              [ "full_name", SqlType.String "Donald Duck" ] ]
         |> ignore
 
         dbCommand conn {
@@ -283,6 +282,31 @@ type Statements() =
         |> shouldNotBeError (fun result ->
             result |> List.length |> should equal 2)
         
+    [<Fact>]
+    member __.``INSERT MANY authors then count to verify async`` () =
+        use tran = conn.TryBeginTransaction()
+
+        dbCommand conn {    
+            cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
+        }
+        |> Db.Async.execMany 
+            [ [ "full_name", SqlType.String "Batman" ]
+              [ "full_name", SqlType.String "Superman" ] ]
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> ignore
+        
+        tran.TryCommit()       
+
+        dbCommand conn {
+            cmdText "SELECT author_id, full_name FROM author WHERE full_name IN ('Batman', 'Superman')"
+        }
+        |> Db.Async.query Author.FromReader
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> shouldNotBeError (fun result ->
+            result |> List.length |> should equal 2)
+
     [<Fact>]
     member __.``INSERT MANY should fail and create DbError`` () =
         dbCommand conn {    
