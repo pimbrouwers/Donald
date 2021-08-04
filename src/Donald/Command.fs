@@ -9,7 +9,7 @@ open System.Threading.Tasks
 type IDbCommand with
     member internal this.SetDbParams(dbParams : DbParams) =
         let setParamValue (p : IDbDataParameter) (v : obj) =
-            if v = null then p.Value <- DBNull.Value
+            if isNull v then p.Value <- DBNull.Value
             else p.Value <- v
 
         this.Parameters.Clear() // clear to ensure a clean working set

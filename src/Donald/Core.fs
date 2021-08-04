@@ -5,25 +5,6 @@ open System
 open System.Data.Common
 open System.Threading.Tasks
 
-let internal continueWith (continuation : Task<'a> -> 'b) (task : Task<'a>) : Task<'b> =          
-    let wrappedContinuation (t : Task<'a>) =
-        if t.IsFaulted then 
-            let mutable ex = t.Exception.Flatten () :> exn
-            while not (isNull ex.InnerException) do
-                ex <- ex.InnerException
-            raise ex 
-        else 
-            continuation t
-
-    task.ContinueWith wrappedContinuation
-
-let internal continueWithTask (continuation : Task<'a> -> Task<'b>) (task : Task<'a>) : Task<'b> =               
-    let continuationTask = task |> continueWith continuation
-    let tcs = TaskCompletionSource<'b>()
-    let x (t : Task<Task<'b>>) = tcs.SetResult(t.Result.Result)
-    continuationTask |> continueWith x |> ignore
-    tcs.Task
-
 /// Details of failure to connection to a database/server.
 type DbConnectionError = 
     { ConnectionString : string
@@ -59,18 +40,21 @@ module DbResult =
 type DbResultTask<'a> = Task<DbResult<'a>>
 
 module DbResultTask =
+    open FSharp.Control.Tasks
+
     let retn value : DbResultTask<_> = 
         value |> Ok |> Task.FromResult
 
     let bind (binder : 'a -> DbResultTask<'b>) (taskResult : DbResultTask<'a>) : DbResultTask<'b> = 
-        let continuation (resultTask : Task<DbResult<'a>>) =
-            match resultTask.Result with 
-            | Ok value -> binder value
-            | Error e  -> Error e |> Task.FromResult
-
-        taskResult
-        |> continueWithTask continuation 
-  
+        task {
+            let! result = taskResult            
+            match result with 
+            | Error e  -> return Error e            
+            | Ok value -> 
+                let! bound = binder value
+                return bound
+        }
+          
 /// Represents the supported data types for database IO.
 type SqlType =
     | Null       
