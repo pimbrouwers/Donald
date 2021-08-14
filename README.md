@@ -163,7 +163,7 @@ conn
 ### Execute a statement many times
 
 ```fsharp
-// Flient
+// Fluent
 conn
 |> Db.newCommand "INSERT INTO author (full_name)" 
 |> Db.execMany [ "full_name", SqlType.String "John Doe"
