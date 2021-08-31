@@ -5,7 +5,7 @@ open System.Data
 
 type IDbConnection with
     /// Safely attempt to open a new IDbTransaction or
-    /// return CouldNotOpenConnectionError.
+    /// return CouldNotOpenConnectionException.
     member this.TryOpenConnection()  =        
         try
             if this.State = ConnectionState.Closed then 
@@ -14,13 +14,13 @@ type IDbConnection with
             let error = 
                 { ConnectionString = this.ConnectionString 
                   Error = ex }
-            raise (CouldNotOpenConnectionError error) 
+            raise (CouldNotOpenConnectionException error) 
 
     /// Safely attempt to create a new IDbTransaction or
-    /// return CouldNotBeginTransactionError.
+    /// return CouldNotBeginTransactionException.
     member this.TryBeginTransaction()  =        
         try
             this.TryOpenConnection()
             this.BeginTransaction()
         with         
-        | ex -> raise (CouldNotBeginTransactionError ex)
+        | ex -> raise (CouldNotBeginTransactionException ex)

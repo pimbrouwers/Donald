@@ -2,6 +2,7 @@
 module Donald.Transaction
 
 open System.Data
+open System.Data.Common
 
 type IDbTransaction with
     /// Safely attempt to rollback an IDbTransaction.
@@ -10,7 +11,7 @@ type IDbTransaction with
             if not(isNull this) 
                && not(isNull this.Connection) then this.Rollback()
         with ex  -> 
-            raise (CouldNotRollbackTransactionError ex) 
+            raise (CouldNotRollbackTransactionException ex) 
 
     /// Safely attempt to commit an IDbTransaction.
     /// Will rollback in the case of Exception.
@@ -23,4 +24,4 @@ type IDbTransaction with
             /// when commmited or rolled back already, but most
             /// implementations do not. So in all cases try rolling back
             this.TryRollback()
-            raise (CouldNotCommitTransactionError ex)             
+            raise (CouldNotCommitTransactionException ex)      

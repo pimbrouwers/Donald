@@ -20,42 +20,15 @@ type DataReaderCastError =
     { FieldName : string 
       Error     : InvalidCastException }
 
-exception CouldNotOpenConnectionError of DbConnectionError
-exception CouldNotBeginTransactionError of exn
-exception CouldNotCommitTransactionError of exn
-exception CouldNotRollbackTransactionError of exn
-exception FailedExecutionError of DbExecutionError
+exception CouldNotOpenConnectionException of DbConnectionError
+exception CouldNotBeginTransactionException of exn
+exception CouldNotCommitTransactionException of exn
+exception CouldNotRollbackTransactionException of exn
+exception FailedExecutionException of DbExecutionError
 exception FailiedCastException of DataReaderCastError
 
-/// Represents the success or failure of a database command execution.
-type DbResult<'a> = Result<'a, DbExecutionError>
-
-module DbResult =
-    let bind (binder : 'a -> DbResult<'b>) (result : DbResult<'a>) : DbResult<'b> = 
-        match result with
-        | Ok success -> binder success
-        | Error err -> Error err
-
-/// Represents the success or failure of an asynchronous database command execution.
-type DbResultTask<'a> = Task<DbResult<'a>>
-
-module DbResultTask =
-    open FSharp.Control.Tasks
-
-    let retn value : DbResultTask<_> = 
-        value |> Ok |> Task.FromResult
-
-    let bind (binder : 'a -> DbResultTask<'b>) (taskResult : DbResultTask<'a>) : DbResultTask<'b> = 
-        task {
-            let! result = taskResult            
-            match result with 
-            | Error e  -> return Error e            
-            | Ok value -> 
-                let! bound = binder value
-                return bound
-        }
-          
 /// Represents the supported data types for database IO.
+[<RequireQualifiedAccess>]
 type SqlType =
     | Null       
     | String         of String
@@ -79,15 +52,8 @@ type SqlType =
 /// Specifies an input parameter for an IDbCommand.
 [<Struct>]
 type DbParam = 
-    { 
-        Name : String
-        Value : SqlType
-    }
-
-module DbParam = 
-    /// Create a new DbParam from raw inputs.
-    let create (name : string) (value : SqlType) =
-        { Name = name; Value = value }
+    { Name : String
+      Value : SqlType }
 
 /// Type abbreviation for (string * SqlType) list.
 type RawDbParams = (string * SqlType) list
@@ -98,4 +64,4 @@ type DbParams = DbParam list
 module DbParams =
     /// Create a new DbParam list from raw inputs.
     let create (lst : RawDbParams) =
-        [ for k, v in lst -> DbParam.create k v ]
+        [ for k, v in lst -> { Name = k; Value = v } ]

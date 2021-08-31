@@ -11,17 +11,17 @@ open FsUnit.Xunit
 let connectionString = "Data Source=:memory:;Version=3;New=true;"
 let conn = new SQLiteConnection(connectionString)
 
-let shouldNotBeError pred (result : DbResult<'a>) =    
+let shouldNotBeError pred (result : Result<'a, DbExecutionError>) =
     match result with
     | Ok result' -> pred result'
     | Error e -> sprintf "DbResult should not be Error: %s" e.Error.Message |> should equal false
 
-let shouldNotBeOk (result : DbResult<'a>) =    
+let shouldNotBeOk (result : Result<'a, DbExecutionError>) =
     match result with
     | Error ex -> ex |> should be instanceOfType<DbExecutionError>
     | _ -> "DbResult should not be Ok" |> should equal false
 
-type Author = 
+type Author =
     {
         AuthorId : int
         FullName : string
@@ -33,7 +33,7 @@ type Author =
         }
 
 type DbFixture () =
-    do 
+    do
         use fs = IO.File.OpenRead("schema.sql")
         use sr = new StreamReader(fs)
         let sql = sr.ReadToEnd()
@@ -41,12 +41,12 @@ type DbFixture () =
         conn
         |> Db.newCommand sql
         |> Db.setTimeout 30
-        |> Db.setCommandType CommandType.Text        
-        |> Db.exec 
+        |> Db.setCommandType CommandType.Text
+        |> Db.exec
         |> ignore
-                  
+
     interface IDisposable with
-        member __.Dispose() = 
+        member __.Dispose() =
             conn.Dispose()
             ()
 
@@ -55,10 +55,10 @@ type DbCollection () =
     interface ICollectionFixture<DbFixture>
 
 [<Collection("Db")>]
-type Statements() = 
+type Statements() =
     [<Fact>]
-    member __.``SELECT all sql types`` () =            
-        let sql = 
+    member __.``SELECT all sql types`` () =
+        let sql =
             "SELECT  @p_null AS p_null
             , @p_string AS p_string
             , @p_ansi_string AS p_ansi_string
@@ -76,7 +76,7 @@ type Statements() =
             , @p_date_time AS p_date_time
             , @p_date_time_offset AS p_date_time_offset"
 
-        let param = 
+        let param =
             [
                 "p_null", SqlType.Null
                 "p_string", SqlType.String "p_string"
@@ -96,7 +96,7 @@ type Statements() =
                 "p_date_time_offset", SqlType.DateTimeOffset DateTimeOffset.Now
             ]
 
-        let map (rd : IDataReader) = 
+        let map (rd : IDataReader) =
             {|
                 p_null = rd.ReadStringOption "p_null"
                 p_string = rd.ReadStringOption "p_string"
@@ -112,32 +112,32 @@ type Statements() =
                 p_int16 = rd.ReadInt16Option "p_int16"
                 p_int32 = rd.ReadInt32Option "p_int32"
                 p_int64 = rd.ReadInt64Option "p_int64"
-                p_date_time = rd.ReadDateTimeOption "p_date_time" 
+                p_date_time = rd.ReadDateTimeOption "p_date_time"
             |}
 
         //dbCommand conn {
         //    cmdText sql
-        //    cmdParam param            
+        //    cmdParam param
         //}
-        conn 
+        conn
         |> Db.newCommand sql
         |> Db.setParams param
         |> Db.querySingle map
         |> shouldNotBeError (fun result -> result.IsSome |> should equal true)
-                           
+
     [<Fact>]
-    member __.``SELECT records`` () =                    
+    member __.``SELECT records`` () =
         dbCommand conn {
             cmdText "SELECT author_id, full_name
                      FROM   author
                      WHERE  author_id IN (1,2)"
-        } 
+        }
         |> Db.query Author.FromReader
         |> shouldNotBeError (fun result -> result.Length |> should equal 2)
 
     [<Fact>]
-    member __.``SELECT records async`` () =            
- 
+    member __.``SELECT records async`` () =
+
         dbCommand conn {
             cmdText "SELECT author_id, full_name
                      FROM   author
@@ -149,7 +149,7 @@ type Statements() =
         |> shouldNotBeError (fun result -> result.Length |> should equal 2)
 
     [<Fact>]
-    member __.``SELECT records should fail and create DbError`` () =        
+    member __.``SELECT records should fail and create DbError`` () =
         dbCommand conn {
             cmdText "SELECT author_id, full_name
                      FROM   fake_author"
@@ -158,12 +158,12 @@ type Statements() =
         |> shouldNotBeOk
 
     [<Fact>]
-    member __.``SELECT NULL`` () =            
+    member __.``SELECT NULL`` () =
         dbCommand conn {
             cmdText "SELECT NULL AS full_name, NULL AS age"
         }
-        |> Db.querySingle (fun rd -> 
-            {| 
+        |> Db.querySingle (fun rd ->
+            {|
                 FullName = rd.ReadStringOption "full_name" |> Option.defaultValue null
                 Age = rd.ReadInt32Option "age" |> Option.asNullable
             |})
@@ -171,29 +171,29 @@ type Statements() =
             result.IsSome         |> should equal true
             result.Value.FullName |> should equal null
             result.Value.Age      |> should equal null)
-      
+
     [<Fact>]
-    member __.``SELECT scalar value`` () =            
+    member __.``SELECT scalar value`` () =
         dbCommand conn {
             cmdText "SELECT 1"
         }
         |> Db.scalar Convert.ToInt32
-        |> shouldNotBeError (fun result ->            
+        |> shouldNotBeError (fun result ->
             result |> should equal 1)
-    
+
     [<Fact>]
-    member __.``SELECT scalar value async`` () =            
+    member __.``SELECT scalar value async`` () =
         dbCommand conn {
             cmdText "SELECT 1"
         }
         |> Db.Async.scalar Convert.ToInt32
         |> Async.AwaitTask
         |> Async.RunSynchronously
-        |> shouldNotBeError (fun result ->            
+        |> shouldNotBeError (fun result ->
             result |> should equal 1)
 
     [<Fact>]
-    member __.``SELECT single record`` () =            
+    member __.``SELECT single record`` () =
         dbCommand conn {
             cmdText "SELECT author_id, full_name
                      FROM   author
@@ -205,7 +205,7 @@ type Statements() =
             result.Value.AuthorId |> should equal 1)
 
     [<Fact>]
-    member __.``SELECT single record async`` () =                    
+    member __.``SELECT single record async`` () =
         dbCommand conn {
             cmdText "SELECT author_id, full_name
                         FROM   author
@@ -214,14 +214,14 @@ type Statements() =
         |> Db.Async.querySingle Author.FromReader
         |> Async.AwaitTask
         |> Async.RunSynchronously
-        |> shouldNotBeError (fun result ->            
+        |> shouldNotBeError (fun result ->
             result.IsSome         |> should equal true
             result.Value.AuthorId |> should equal 1)
-            
+
     [<Fact>]
     member __.``INSERT author then retrieve to verify`` () =
         let fullName = "Jane Doe"
-        
+
         dbCommand conn {
             cmdText  "INSERT INTO author (full_name) VALUES (@full_name);
 
@@ -229,16 +229,16 @@ type Statements() =
                       FROM   author
                       WHERE  author_id = LAST_INSERT_ROWID();"
             cmdParam [ "full_name", SqlType.String fullName ]
-        }                 
-        |> Db.querySingle Author.FromReader               
-        |> shouldNotBeError (fun result ->  
+        }
+        |> Db.querySingle Author.FromReader
+        |> shouldNotBeError (fun result ->
             result.IsSome |> should equal true
 
             match result with
             | Some author ->
                 author.FullName |> should equal fullName
-            | None -> 
-                ())   
+            | None ->
+                ())
 
     [<Fact>]
     member __.``INSERT author with NULL birth_date`` () =
@@ -247,7 +247,7 @@ type Statements() =
 
         dbCommand conn {
             cmdText  "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
-            cmdParam [ 
+            cmdParam [
                          "full_name", SqlType.String fullName
                          "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null
                      ]
@@ -267,10 +267,10 @@ type Statements() =
 
     [<Fact>]
     member __.``INSERT MANY authors then count to verify`` () =
-        dbCommand conn {    
+        dbCommand conn {
             cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
         }
-        |> Db.execMany 
+        |> Db.execMany
             [ [ "full_name", SqlType.String "Bugs Bunny" ]
               [ "full_name", SqlType.String "Donald Duck" ] ]
         |> ignore
@@ -281,22 +281,22 @@ type Statements() =
         |> Db.query Author.FromReader
         |> shouldNotBeError (fun result ->
             result |> List.length |> should equal 2)
-        
+
     [<Fact>]
-    member __.``INSERT MANY authors then count to verify async`` () =
+    member __.``INSERT TRAN MANY authors then count to verify async`` () =
         use tran = conn.TryBeginTransaction()
 
-        dbCommand conn {    
+        dbCommand conn {
             cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
         }
-        |> Db.Async.execMany 
+        |> Db.Async.execMany
             [ [ "full_name", SqlType.String "Batman" ]
               [ "full_name", SqlType.String "Superman" ] ]
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> ignore
-        
-        tran.TryCommit()       
+
+        tran.TryCommit()
 
         dbCommand conn {
             cmdText "SELECT author_id, full_name FROM author WHERE full_name IN ('Batman', 'Superman')"
@@ -309,7 +309,7 @@ type Statements() =
 
     [<Fact>]
     member __.``INSERT MANY should fail and create DbError`` () =
-        dbCommand conn {    
+        dbCommand conn {
             cmdText "INSERT INTO fake_author (full_name) VALUES (@full_name);"
         }
         |> Db.execMany [
@@ -317,12 +317,12 @@ type Statements() =
                                [ "full_name", SqlType.String "Donald Duck" ]
                            ]
         |> shouldNotBeOk
- 
+
     [<Fact>]
     member __.``INSERT+SELECT binary should work`` () =
         let testString = "A sample of bytes"
         let bytes = Text.Encoding.UTF8.GetBytes(testString)
-        
+
         dbCommand conn {
             cmdText "INSERT INTO file (data) VALUES (@data);
                      SELECT data FROM file WHERE file_id = LAST_INSERT_ROWID();"
@@ -331,7 +331,7 @@ type Statements() =
         |> Db.querySingle (fun rd -> rd.ReadBytes "data")
         |> shouldNotBeError (fun result ->
             match result with
-            | Some b -> 
+            | Some b ->
                 let str = Text.Encoding.UTF8.GetString(b)
                 b |> should equal bytes
                 str |> should equal testString
@@ -347,20 +347,20 @@ type Statements() =
             cmdText  "INSERT INTO author (full_name) VALUES (@full_name);"
             cmdParam param
             cmdTran  tran
-        }                 
+        }
         |> Db.exec
         |> ignore
 
-        tran.TryCommit()        
+        tran.TryCommit()
 
         dbCommand conn {
             cmdText  "SELECT author_id, full_name
                       FROM   author
                       WHERE  full_name = @full_name;"
             cmdParam param
-        }                 
-        |> Db.querySingle Author.FromReader               
-        |> shouldNotBeError (fun result ->  
+        }
+        |> Db.querySingle Author.FromReader
+        |> shouldNotBeError (fun result ->
             result.IsSome |> should equal true)
 
     [<Fact>]
@@ -370,7 +370,7 @@ type Statements() =
 
         let cmd = dbCommand conn {
             cmdText  "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
-            cmdParam [ 
+            cmdParam [
                          "full_name", SqlType.String fullName
                          "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null
                      ]
@@ -378,19 +378,19 @@ type Statements() =
 
         dbResult {
             do! cmd |> Db.exec
-        }        
+        }
         |> shouldNotBeError (fun result -> ())
 
     [<Fact>]
     member __.``dbResult {...} INSERT MANY authors then count to verify`` () =
-        let insertCmd = dbCommand conn {    
+        let insertCmd = dbCommand conn {
             cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
         }
 
         let selectCmd = dbCommand conn {
             cmdText "SELECT author_id, full_name FROM author WHERE full_name IN ('Jeremiah Doe', 'Jimmington Doe')"
         }
-                
+
         let result = dbResult {
             do! insertCmd |> Db.execMany [
                 [ "full_name", SqlType.String "Jeremiah Doe" ]
@@ -399,7 +399,7 @@ type Statements() =
 
             return! selectCmd |> Db.query Author.FromReader
         }
-        
+
         result
         |> shouldNotBeError (fun result -> result |> List.length |> should equal 2)
 
@@ -410,23 +410,23 @@ type Statements() =
 
         use tran = conn.TryBeginTransaction()
 
-        let insertCmd = 
+        let insertCmd =
             let sql = "INSERT INTO author (full_name) VALUES (@full_name);"
             conn
             |> Db.newCommand sql
             |> Db.setParams param
             |> Db.setTransaction tran
 
-        let selectCmd = 
+        let selectCmd =
             let sql = "
             SELECT author_id, full_name
             FROM   author
             WHERE  full_name = @full_name;"
 
-            conn 
+            conn
             |> Db.newCommand sql
             |> Db.setParams param
-                
+
         let result = dbResult {
             let! _ = insertCmd |> Db.exec
 
@@ -435,14 +435,14 @@ type Statements() =
             return author
         }
 
-        tran.TryCommit()        
+        tran.TryCommit()
 
-        result             
+        result
         |> shouldNotBeError (fun result -> result.IsSome |> should equal true)
 
     [<Fact>]
     member __.``dbResult {...} for...do loop`` () =
-        let cmds = 
+        let cmds =
             [1..10]
             |> Seq.map (fun n -> dbCommand conn {
                 cmdText (sprintf "SELECT %i" n)
@@ -451,12 +451,12 @@ type Statements() =
         dbResult {
             for cmd in cmds do
                 cmd |> Db.scalar Convert.ToInt32 |> ignore
-        }        
+        }
         |> shouldNotBeError (fun result -> ())
 
     [<Fact>]
     member __.``dbResult {...} for...do loop with return`` () =
-        let cmds = 
+        let cmds =
             [1..10]
             |> Seq.map (fun n -> dbCommand conn {
                 cmdText (sprintf "SELECT %i" n)
@@ -477,7 +477,7 @@ type Statements() =
 
         let cmd = dbCommand conn {
             cmdText  "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
-            cmdParam [ 
+            cmdParam [
                          "full_name", SqlType.String fullName
                          "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null
                      ]
@@ -485,21 +485,21 @@ type Statements() =
 
         dbResultTask {
             do! cmd |> Db.Async.exec
-        }        
+        }
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> shouldNotBeError (fun result -> ())
 
     [<Fact>]
     member __.``dbResultTask {...} INSERT MANY authors then count to verify`` () =
-        let insertCmd = dbCommand conn {    
+        let insertCmd = dbCommand conn {
             cmdText "INSERT INTO author (full_name) VALUES (@full_name);"
         }
 
         let selectCmd = dbCommand conn {
             cmdText "SELECT author_id, full_name FROM author WHERE full_name IN ('Jimmer Doe', 'Jer Doe')"
         }
-                
+
         let result = dbResultTask {
             do! insertCmd |> Db.Async.execMany [
                 [ "full_name", SqlType.String "Jimmer Doe" ]
@@ -508,7 +508,7 @@ type Statements() =
 
             return! selectCmd |> Db.Async.query Author.FromReader
         }
-        
+
         result
         |> Async.AwaitTask
         |> Async.RunSynchronously
@@ -533,7 +533,7 @@ type Statements() =
                       WHERE  full_name = @full_name;"
             cmdParam param
         }
-        
+
         let result = dbResultTask {
             let! _ = insertCmd |> Db.Async.exec
 
@@ -542,16 +542,16 @@ type Statements() =
             return author
         }
 
-        tran.TryCommit()        
+        tran.TryCommit()
 
-        result             
+        result
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> shouldNotBeError (fun result -> result.IsSome |> should equal true)
 
     [<Fact>]
     member __.``dbResultTask {...} for...do loop`` () =
-        let cmds = 
+        let cmds =
             [1..10]
             |> Seq.map (fun n -> dbCommand conn {
                 cmdText (sprintf "SELECT %i" n)
@@ -560,14 +560,14 @@ type Statements() =
         dbResultTask {
             for cmd in cmds do
                 cmd |> Db.Async.scalar Convert.ToInt32 |> ignore
-        }      
+        }
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> shouldNotBeError (fun result -> ())
 
     [<Fact>]
     member __.``dbResultTask {...} for...do loop with return`` () =
-        let cmds = 
+        let cmds =
             [1..10]
             |> Seq.map (fun n -> dbCommand conn {
                 cmdText (sprintf "SELECT %i" n)
@@ -584,37 +584,37 @@ type Statements() =
         |> shouldNotBeError ignore
 
     [<Fact>]
-    member __.``Returning IDataReader via read`` () =                    
+    member __.``Returning IDataReader via read`` () =
         let sql = "
         SELECT author_id, full_name
         FROM   author
         WHERE  author_id IN (1,2)"
-        
-        use rd = 
-            conn 
+
+        use rd =
+            conn
             |> Db.newCommand sql
-            |> Db.read 
+            |> Db.read
 
         let result = [ while rd.Read() do Author.FromReader rd ]
 
-        result 
+        result
         |> (fun result -> result.Length |> should equal 2)
 
     [<Fact>]
-    member __.``Returning Task<IDataReader> via async read`` () =                    
+    member __.``Returning Task<IDataReader> via async read`` () =
         let sql = "
         SELECT author_id, full_name
         FROM   author
         WHERE  author_id IN (1,2)"
-        
-        use rd = 
-            conn 
+
+        use rd =
+            conn
             |> Db.newCommand sql
-            |> Db.Async.read 
+            |> Db.Async.read
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
         let result = [ while rd.Read() do Author.FromReader rd ]
 
-        result 
+        result
         |> (fun result -> result.Length |> should equal 2)

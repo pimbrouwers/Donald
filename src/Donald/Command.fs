@@ -19,68 +19,68 @@ type IDbCommand with
             p.ParameterName <- param.Name
             
             match param.Value with
-            | Null -> 
+            | SqlType.Null -> 
                 p.Value <- DBNull.Value
 
-            | String v -> 
+            | SqlType.String v -> 
                 p.DbType <- DbType.String
                 setParamValue p v
 
-            | AnsiString v ->
+            | SqlType.AnsiString v ->
                 p.DbType <- DbType.AnsiString
                 setParamValue p v
 
-            | Boolean v -> 
+            | SqlType.Boolean v -> 
                 p.DbType <- DbType.Boolean
                 setParamValue p v
 
-            | Byte v -> 
+            | SqlType.Byte v -> 
                 p.DbType <- DbType.Byte
                 setParamValue p v
 
-            | Char v -> 
+            | SqlType.Char v -> 
                 p.DbType <- DbType.AnsiString
                 setParamValue p v
 
-            | AnsiChar v ->
+            | SqlType.AnsiChar v ->
                 p.DbType <- DbType.String
                 setParamValue p v
 
-            | Decimal v -> 
+            | SqlType.Decimal v -> 
                 p.DbType <- DbType.Decimal
                 setParamValue p v
 
-            | Double v
-            | Float v ->
+            | SqlType.Double v
+            | SqlType.Float v ->
                 p.DbType <- DbType.Double
                 setParamValue p v 
 
-            | Int16 v -> 
+            | SqlType.Int16 v -> 
                 p.DbType <- DbType.Int16
                 setParamValue p v
 
-            | Int32 v 
-            | Int v -> 
+            | SqlType.Int32 v 
+            | SqlType.Int v -> 
                 p.DbType <- DbType.Int32
                 setParamValue p v
 
-            | Int64 v -> 
+            | SqlType.Int64 v -> 
                 p.DbType <- DbType.Int64
                 setParamValue p v
                 
-            | Guid v -> 
+            | SqlType.Guid v -> 
                 p.DbType <- DbType.Guid
                 setParamValue p v
 
-            | DateTime v -> 
+            | SqlType.DateTime v -> 
                 p.DbType <- DbType.DateTime
                 setParamValue p v
 
-            | DateTimeOffset v ->
+            | SqlType.DateTimeOffset v ->
                 p.DbType <- DbType.DateTimeOffset
                 setParamValue p v
 
-            | Bytes v -> 
+            | SqlType.Bytes v -> 
                 p.DbType <- DbType.Binary
                 setParamValue p v
 
@@ -92,7 +92,7 @@ type IDbCommand with
         try 
             fn this
         with
-        | :? DbException as ex -> raise (FailedExecutionError ({ Statement = this.CommandText; Error = ex }))
+        | :? DbException as ex -> raise (FailedExecutionException ({ Statement = this.CommandText; Error = ex }))
 
     member internal this.Exec () =
         this.TryDo (fun this -> this.ExecuteNonQuery() |> ignore)
@@ -105,7 +105,7 @@ type DbCommand with
         try 
             fn this             
         with
-        | :? DbException as ex -> raise (FailedExecutionError ({ Statement = this.CommandText; Error = ex }))    
+        | :? DbException as ex -> raise (FailedExecutionException ({ Statement = this.CommandText; Error = ex }))    
 
     member internal this.SetDbParams(param : DbParams) =
         (this :> IDbCommand).SetDbParams(param) :?> DbCommand
