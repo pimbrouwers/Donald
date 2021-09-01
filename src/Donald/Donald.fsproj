@@ -38,13 +38,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="Core.fs" />
-    <Compile Include="Connection.fs" />
-    <Compile Include="Transaction.fs" />
-    <Compile Include="Command.fs" />
-    <Compile Include="DataReader.fs" />
-    <Compile Include="Db.fs" />
-    <Compile Include="Builder.fs" />
+    <Compile Include="Donald.fs" />
   </ItemGroup>
 
   <ItemGroup>
