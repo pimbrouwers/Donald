@@ -536,3 +536,69 @@ module Db =
                 let result = rd :> IDataReader
                 return result
             }            
+
+[<AutoOpen>]
+module CommandBuilder = 
+    type CommandSpec<'a> = 
+        {
+            Connection     : IDbConnection
+            Transaction    : IDbTransaction option
+            CommandType    : CommandType
+            CommandTimeout : int option
+            Statement      : string 
+            Param          : RawDbParams
+        }
+        static member Default (conn : IDbConnection) = 
+            {
+                Connection     = conn
+                Transaction    = None
+                CommandType    = CommandType.Text
+                CommandTimeout = None
+                Statement      = ""
+                Param          = []
+            }
+
+    /// Computation expression for generating IDbCommand instances.
+    type DbCommandBuilder<'a>(conn : IDbConnection) =
+        member _.Yield(_) = CommandSpec<'a>.Default (conn)
+
+        member _.Run(spec : CommandSpec<'a>) =         
+            let cmd = 
+                spec.Connection
+                |> Db.newCommand spec.Statement
+                |> Db.setCommandType spec.CommandType
+                |> Db.setParams spec.Param
+                
+            match spec.Transaction, spec.CommandTimeout with 
+            | Some tran, Some timeout -> cmd |> Db.setTimeout timeout |> Db.setTransaction tran 
+            | Some tran, None         -> Db.setTransaction tran cmd
+            | None, Some timeout      -> Db.setTimeout timeout cmd
+            | None, None              -> cmd
+            
+        [<CustomOperation("cmdParam")>]
+        /// Add DbParams.
+        member _.DbParams (spec : CommandSpec<'a>, param : RawDbParams) =
+            { spec with Param = param }
+
+        [<CustomOperation("cmdText")>]
+        /// Set statement text.
+        member _.Statement (spec : CommandSpec<'a>, statement : string) =
+            { spec with Statement = statement }
+
+        [<CustomOperation("cmdTran")>]
+        /// Set transaction.
+        member _.Transaction (spec : CommandSpec<'a>, tran : IDbTransaction) =
+            { spec with Transaction = Some tran }
+        
+        [<CustomOperation("cmdType")>]
+        /// Set command type (default: CommandType.Text).
+        member _.CommandType (spec : CommandSpec<'a>, commandType : CommandType) =
+            { spec with CommandType = commandType }
+        
+        [<CustomOperation("cmdTimeout")>]
+        /// Set command timeout.
+        member _.CommandTimeout (spec : CommandSpec<'a>, timeout : TimeSpan) =
+            { spec with CommandTimeout = Some <| int timeout.TotalSeconds }
+
+    /// Computation expression for generating IDbCommand instances.
+    let dbCommand<'a> (conn : IDbConnection) = DbCommandBuilder<'a>(conn)

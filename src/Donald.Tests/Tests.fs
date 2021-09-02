@@ -115,13 +115,10 @@ type Statements() =
                 p_date_time = rd.ReadDateTimeOption "p_date_time"
             |}
 
-        //dbCommand conn {
-        //    cmdText sql
-        //    cmdParam param
-        //}
-        conn
-        |> Db.newCommand sql
-        |> Db.setParams param
+        dbCommand conn {
+           cmdText sql
+           cmdParam param
+        }        
         |> Db.querySingle map
         |> shouldNotBeError (fun result -> result.IsSome |> should equal true)
 
