@@ -290,6 +290,7 @@ type Statements() =
         let sql = "INSERT INTO author (full_name) VALUES (@full_name);"
         conn
         |> Db.newCommand sql
+        |> Db.setTransaction tran
         |> Db.Async.execMany
             [ [ "full_name", SqlType.String "Batman" ]
               [ "full_name", SqlType.String "Superman" ] ]
@@ -345,6 +346,8 @@ type Statements() =
         let fullName = "Janet Doe"
         let param = [ "full_name", SqlType.String fullName ]
         use tran = conn.TryBeginTransaction()
+        let timeout = TimeSpan.FromSeconds(10.)
+        let type' = CommandType.Text
 
         let sql = "INSERT INTO author (full_name) VALUES (@full_name);"        
         
@@ -352,6 +355,8 @@ type Statements() =
             cmdText  sql
             cmdParam param
             cmdTran  tran
+            cmdTimeout timeout
+            cmdType type'
         }
         |> Db.exec
         |> ignore
