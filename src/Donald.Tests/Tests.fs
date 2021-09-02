@@ -348,10 +348,11 @@ type Statements() =
 
         let sql = "INSERT INTO author (full_name) VALUES (@full_name);"        
         
-        conn
-        |> Db.newCommand sql
-        |> Db.setParams param
-        |> Db.setTransaction tran
+        dbCommand conn {
+            cmdText  sql
+            cmdParam param
+            cmdTran  tran
+        }
         |> Db.exec
         |> ignore
 
@@ -361,9 +362,10 @@ type Statements() =
                     FROM   author
                     WHERE  full_name = @full_name;"
         
-        conn
-        |> Db.newCommand sql
-        |> Db.setParams param
+        dbCommand conn {
+            cmdText  sql
+            cmdParam param
+        }
         |> Db.querySingle Author.FromReader
         |> shouldNotBeError (fun result ->
             result.IsSome |> should equal true)
