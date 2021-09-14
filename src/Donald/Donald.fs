@@ -10,46 +10,57 @@ open FSharp.Control.Tasks
 /// Details of failure to connection to a database/server.
 type DbConnectionError = 
     { ConnectionString : string
-      Error            : exn }
+      Error : exn }
+
+/// Details the steps of database a transaction.
+type DbTransactionStep =  TxBegin | TxCommit | TxRollback
+
+/// Details of transaction failure.
+type DbTransactionError =
+    { Step : DbTransactionStep 
+      Error : exn}
 
 /// Details of failure to execute database command.
 type DbExecutionError = 
     { Statement : string
-      Error     : DbException }
+      Error : DbException }
 
 /// Details of failure to cast a IDataRecord field.
 type DataReaderCastError = 
     { FieldName : string 
-      Error     : InvalidCastException }
+      Error : InvalidCastException }
 
-exception CouldNotOpenConnectionException of DbConnectionError
-exception CouldNotBeginTransactionException of exn
-exception CouldNotCommitTransactionException of exn
-exception CouldNotRollbackTransactionException of exn
+type DbError = 
+    | DbConnectionError of DbConnectionError
+    | DbTransactionError of DbTransactionError
+    | DbExecutionError of DbExecutionError
+    | DataReaderCastError of DataReaderCastError
+
+exception FailedOpenConnectionException of DbConnectionError
+exception FailedTransactionException of DbTransactionError
 exception FailedExecutionException of DbExecutionError
-exception FailiedCastException of DataReaderCastError
+exception FailedCastException of DataReaderCastError
 
 /// Represents the supported data types for database IO.
 [<RequireQualifiedAccess>]
 type SqlType =
     | Null       
-    | String         of String
-    | AnsiString     of String
-    | Boolean        of Boolean
-    | Byte           of Byte
-    | Char           of Char
-    | AnsiChar       of Char
-    | Decimal        of Decimal
-    | Double         of Double
-    | Float          of float
-    | Guid           of Guid
-    | Int16          of Int16
-    | Int32          of Int32
-    | Int            of int32
-    | Int64          of Int64
-    | DateTime       of DateTime
-    | DateTimeOffset of DateTimeOffset
-    | Bytes          of Byte[]
+    | String     of String
+    | AnsiString of String
+    | Boolean    of Boolean
+    | Byte       of Byte
+    | Char       of Char
+    | AnsiChar   of Char
+    | Decimal    of Decimal
+    | Double     of Double
+    | Float      of float
+    | Guid       of Guid
+    | Int16      of Int16
+    | Int32      of Int32
+    | Int        of int32
+    | Int64      of Int64
+    | DateTime   of DateTime    
+    | Bytes      of Byte[]
 
 /// Specifies an input parameter for an IDbCommand.
 [<Struct>]
@@ -72,7 +83,7 @@ module DbParams =
 module Connection = 
     type IDbConnection with
         /// Safely attempt to open a new IDbTransaction or
-        /// return CouldNotOpenConnectionException.
+        /// return FailedOpenConnectionException.
         member this.TryOpenConnection()  =        
             try
                 if this.State = ConnectionState.Closed then 
@@ -81,7 +92,8 @@ module Connection =
                 let error = 
                     { ConnectionString = this.ConnectionString 
                       Error = ex }
-                raise (CouldNotOpenConnectionException error) 
+
+                raise (FailedOpenConnectionException error) 
 
         /// Safely attempt to create a new IDbTransaction or
         /// return CouldNotBeginTransactionException.
@@ -90,7 +102,12 @@ module Connection =
                 this.TryOpenConnection()
                 this.BeginTransaction()
             with         
-            | ex -> raise (CouldNotBeginTransactionException ex)
+            | ex -> 
+                let error = 
+                    { Step = TxBegin
+                      Error = ex }
+
+                raise (FailedTransactionException error)
 
 [<AutoOpen>]
 module Transaction = 
@@ -101,7 +118,11 @@ module Transaction =
                 if not(isNull this) 
                    && not(isNull this.Connection) then this.Rollback()
             with ex  -> 
-                raise (CouldNotRollbackTransactionException ex) 
+                let error = 
+                    { Step = TxRollback
+                      Error = ex }
+
+                raise (FailedTransactionException error) 
 
         /// Safely attempt to commit an IDbTransaction.
         /// Will rollback in the case of Exception.
@@ -114,7 +135,11 @@ module Transaction =
                 /// when commmited or rolled back already, but most
                 /// implementations do not. So in all cases try rolling back
                 this.TryRollback()
-                raise (CouldNotCommitTransactionException ex)      
+
+                let error = 
+                    { Step = TxCommit
+                      Error = ex }
+                raise (FailedTransactionException error)      
 
 [<AutoOpen>]
 module Command = 
@@ -188,10 +213,6 @@ module Command =
                     p.DbType <- DbType.DateTime
                     setParamValue p v
 
-                | SqlType.DateTimeOffset v ->
-                    p.DbType <- DbType.DateTimeOffset
-                    setParamValue p v
-
                 | SqlType.Bytes v -> 
                     p.DbType <- DbType.Binary
                     setParamValue p v
@@ -251,7 +272,12 @@ module DataReader =
                 try
                     map v
                 with 
-                | :? InvalidCastException as ex -> raise (FailiedCastException { FieldName = name; Error = ex })
+                | :? InvalidCastException as ex -> 
+                    let error = 
+                        { FieldName = name
+                          Error = ex }
+                          
+                    raise (FailedCastException error)
                     
             this.GetOrdinalOption(name)
             |> Option.map fn
@@ -275,12 +301,7 @@ module DataReader =
         /// Safely retrieve DateTime Option
         member this.ReadDateTimeOption (name : string) = 
             name |> this.GetOption (fun i -> this.GetDateTime(i))    
-        
-        /// Safely retrieve DateTimeOffset Option
-        [<Obsolete>]
-        member this.ReadDateTimeOffsetOption (name : string) = 
-            this.ReadStringOption name |> Option.map (fun dt -> snd(DateTimeOffset.TryParse dt))
-        
+
         /// Safely retrieve Decimal Option
         member this.ReadDecimalOption (name : string) = 
             name |> this.GetOption (fun i -> this.GetDecimal(i))
@@ -412,21 +433,24 @@ module Db =
         cmd.Transaction <- tran
         cmd
 
-    let private tryDo (fn : IDbCommand -> 'a) (cmd : IDbCommand) : Result<'a, DbExecutionError> =
+    let private tryDo (fn : IDbCommand -> 'a) (cmd : IDbCommand) : Result<'a, DbError> =
         try
             cmd.Connection.TryOpenConnection() |> ignore
             let result = fn cmd
             cmd.Dispose()
             Ok result
         with
-        | FailedExecutionException e -> Error e
+        | FailedOpenConnectionException e -> Error (DbConnectionError e)
+        | FailedTransactionException e -> Error (DbTransactionError e)
+        | FailedExecutionException e -> Error (DbExecutionError e)
+        | FailedCastException e -> Error (DataReaderCastError e)
 
     /// Execute parameterized query with no results.
-    let exec (cmd : IDbCommand) : Result<unit, DbExecutionError> =
+    let exec (cmd : IDbCommand) : Result<unit, DbError> =
         tryDo (fun cmd -> cmd.Exec()) cmd
 
     /// Execute parameterized query many times with no results.
-    let execMany (param : RawDbParams list) (cmd : IDbCommand) : Result<unit, DbExecutionError> =
+    let execMany (param : RawDbParams list) (cmd : IDbCommand) : Result<unit, DbError> =
         try
             for p in param do
                 let dbParams = DbParams.create p
@@ -434,17 +458,20 @@ module Db =
 
             Ok ()
         with
-        | FailedExecutionException e -> Error e
+        | FailedOpenConnectionException e -> Error (DbConnectionError e)
+        | FailedTransactionException e -> Error (DbTransactionError e)
+        | FailedExecutionException e -> Error (DbExecutionError e)
+        | FailedCastException e -> Error (DataReaderCastError e)
 
     /// Execute scalar query and box the result.
-    let scalar (convert : obj -> 'a) (cmd : IDbCommand) : Result<'a, DbExecutionError> =
+    let scalar (convert : obj -> 'a) (cmd : IDbCommand) : Result<'a, DbError> =
         tryDo (fun cmd ->
             let value = cmd.ExecuteScalar()
             convert value)
             cmd
 
     /// Execute parameterized query, enumerate all records and apply mapping.
-    let query (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : Result<'a list, DbExecutionError> =
+    let query (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : Result<'a list, DbError> =
         tryDo (fun cmd ->
             use rd = cmd.ExecReader() :?> 'reader
             let results = [ while rd.Read() do yield map rd ]
@@ -453,7 +480,7 @@ module Db =
             cmd
 
     /// Execute paramterized query, read only first record and apply mapping.
-    let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : Result<'a option, DbExecutionError> =
+    let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : Result<'a option, DbError> =
         tryDo
             (fun cmd ->
                 use rd = cmd.ExecReader() :?> 'reader
@@ -467,18 +494,21 @@ module Db =
         cmd.ExecReader(CommandBehavior.Default)
 
     module Async =        
-        let private tryDoAsync (fn : DbCommand -> Task<'a>) (cmd : IDbCommand) : Task<Result<'a, DbExecutionError>> =
+        let private tryDoAsync (fn : DbCommand -> Task<'a>) (cmd : IDbCommand) : Task<Result<'a, DbError>> =
             task {
                 try
                     cmd.Connection.TryOpenConnection() |> ignore
                     let! result = fn (cmd :?> DbCommand)
                     return (Ok result)
                 with
-                | FailedExecutionException e -> return Error e
+                | FailedOpenConnectionException e -> return Error (DbConnectionError e)
+                | FailedTransactionException e -> return Error (DbTransactionError e)
+                | FailedExecutionException e -> return Error (DbExecutionError e)
+                | FailedCastException e -> return Error (DataReaderCastError e)
             }
 
         /// Asynchronously execute parameterized query with no results.
-        let exec (cmd : IDbCommand) : Task<Result<unit, DbExecutionError>> =
+        let exec (cmd : IDbCommand) : Task<Result<unit, DbError>> =
             let inner = fun (cmd : DbCommand) -> task {
                 let! _ = cmd.ExecAsync()
                 return ()
@@ -486,7 +516,7 @@ module Db =
             tryDoAsync inner cmd
 
         /// Asynchronously execute parameterized query many times with no results
-        let execMany (param : RawDbParams list) (cmd : IDbCommand) : Task<Result<unit, DbExecutionError>> =
+        let execMany (param : RawDbParams list) (cmd : IDbCommand) : Task<Result<unit, DbError>> =
             let inner = fun (cmd : DbCommand) -> task {
                 for p in param do
                     let dbParams = DbParams.create p
@@ -498,7 +528,7 @@ module Db =
             tryDoAsync inner cmd
 
         /// Execute scalar query and box the result.
-        let scalar (convert : obj -> 'a) (cmd : IDbCommand) : Task<Result<'a, DbExecutionError>> =
+        let scalar (convert : obj -> 'a) (cmd : IDbCommand) : Task<Result<'a, DbError>> =
             let inner = fun (cmd : DbCommand) -> task {
                 let! value = cmd.ExecuteScalarAsync()
                 return convert value
@@ -506,7 +536,7 @@ module Db =
             tryDoAsync inner cmd
 
         /// Asynchronously execute parameterized query, enumerate all records and apply mapping.
-        let query (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : Task<Result<'a list, DbExecutionError>> =
+        let query (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : Task<Result<'a list, DbError>> =
             let inner = fun (cmd : IDbCommand) -> task {
                 use! rd = (cmd :?> DbCommand).ExecReaderAsync()
                 let rd' = rd :?> 'reader
@@ -517,7 +547,7 @@ module Db =
             tryDoAsync inner cmd
 
         /// Asynchronously execute paramterized query, read only first record and apply mapping.
-        let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : Task<Result<'a option, DbExecutionError>> =
+        let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (cmd : IDbCommand) : Task<Result<'a option, DbError>> =
             let inner = fun (cmd : DbCommand) -> task {
                 use! rd = cmd.ExecReaderAsync()
                 let rd' = rd :?> 'reader

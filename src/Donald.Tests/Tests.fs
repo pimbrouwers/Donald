@@ -11,14 +11,14 @@ open FsUnit.Xunit
 let connectionString = "Data Source=:memory:;Version=3;New=true;"
 let conn = new SQLiteConnection(connectionString)
 
-let shouldNotBeError pred (result : Result<'a, DbExecutionError>) =
+let shouldNotBeError pred (result : Result<'a, DbError>) =
     match result with
     | Ok result' -> pred result'
-    | Error e -> sprintf "DbResult should not be Error: %s" e.Error.Message |> should equal false
+    | Error e -> sprintf "DbResult should not be Error: %A" e |> should equal false
 
-let shouldNotBeOk (result : Result<'a, DbExecutionError>) =
+let shouldNotBeOk (result : Result<'a, DbError>) =
     match result with
-    | Error ex -> ex |> should be instanceOfType<DbExecutionError>
+    | Error ex -> ex |> should be instanceOfType<DbError>
     | _ -> "DbResult should not be Ok" |> should equal false
 
 type Author =
@@ -58,8 +58,8 @@ type DbCollection () =
 type Statements() =
     [<Fact>]
     member __.``SELECT all sql types`` () =
-        let sql =
-            "SELECT  @p_null AS p_null
+        let sql = "
+            SELECT  @p_null AS p_null
             , @p_string AS p_string
             , @p_ansi_string AS p_ansi_string
             , @p_boolean AS p_boolean
@@ -73,8 +73,7 @@ type Statements() =
             , @p_int16 AS p_int16
             , @p_int32 AS p_int32
             , @p_int64 AS p_int64
-            , @p_date_time AS p_date_time
-            , @p_date_time_offset AS p_date_time_offset"
+            , @p_date_time AS p_date_time"                       
 
         let param =
             [
@@ -92,8 +91,7 @@ type Statements() =
                 "p_int16", SqlType.Int16 0s
                 "p_int32", SqlType.Int32 0
                 "p_int64", SqlType.Int64 0L
-                "p_date_time", SqlType.DateTime DateTime.Now
-                "p_date_time_offset", SqlType.DateTimeOffset DateTimeOffset.Now
+                "p_date_time", SqlType.DateTime DateTime.Now                
             ]
 
         let map (rd : IDataReader) =
@@ -124,9 +122,11 @@ type Statements() =
 
     [<Fact>]
     member __.``SELECT records`` () =
-        let sql = "SELECT author_id, full_name
-                     FROM   author
-                     WHERE  author_id IN (1,2)"
+        let sql = "
+            SELECT author_id, full_name
+            FROM   author
+            WHERE  author_id IN (1,2)"
+
         conn
         |> Db.newCommand sql
         |> Db.query Author.FromReader
@@ -135,9 +135,10 @@ type Statements() =
     [<Fact>]
     member __.``SELECT records async`` () =
 
-        let sql = "SELECT author_id, full_name
-                     FROM   author
-                     WHERE  author_id IN (1,2)"
+        let sql = "
+            SELECT author_id, full_name
+            FROM   author
+            WHERE  author_id IN (1,2)"
         conn
         |> Db.newCommand sql
         |> Db.Async.query Author.FromReader
@@ -147,8 +148,10 @@ type Statements() =
 
     [<Fact>]
     member __.``SELECT records should fail and create DbError`` () =
-        let sql = "SELECT author_id, full_name
-                     FROM   fake_author"
+        let sql = "
+            SELECT author_id, full_name
+            FROM   fake_author"
+
         conn
         |> Db.newCommand sql
         |> Db.query Author.FromReader
@@ -157,6 +160,7 @@ type Statements() =
     [<Fact>]
     member __.``SELECT NULL`` () =
         let sql = "SELECT NULL AS full_name, NULL AS age"
+        
         conn
         |> Db.newCommand sql
         |> Db.querySingle (fun rd ->
@@ -172,6 +176,7 @@ type Statements() =
     [<Fact>]
     member __.``SELECT scalar value`` () =
         let sql = "SELECT 1"
+        
         conn
         |> Db.newCommand sql
         |> Db.scalar Convert.ToInt32
@@ -181,6 +186,7 @@ type Statements() =
     [<Fact>]
     member __.``SELECT scalar value async`` () =
         let sql = "SELECT 1"
+        
         conn
         |> Db.newCommand sql
         |> Db.Async.scalar Convert.ToInt32
@@ -191,9 +197,11 @@ type Statements() =
 
     [<Fact>]
     member __.``SELECT single record`` () =
-        let sql = "SELECT author_id, full_name
-                     FROM   author
-                     WHERE  author_id = 1"
+        let sql = "
+            SELECT author_id, full_name
+            FROM   author
+            WHERE  author_id = 1"
+        
         conn
         |> Db.newCommand sql
         |> Db.querySingle Author.FromReader
@@ -203,9 +211,11 @@ type Statements() =
 
     [<Fact>]
     member __.``SELECT single record async`` () =
-        let sql = "SELECT author_id, full_name
-                        FROM   author
-                        WHERE  author_id = 1"
+        let sql = "
+            SELECT author_id, full_name
+            FROM   author
+            WHERE  author_id = 1"
+
         conn
         |> Db.newCommand sql
         |> Db.Async.querySingle Author.FromReader
@@ -219,12 +229,15 @@ type Statements() =
     member __.``INSERT author then retrieve to verify`` () =
         let fullName = "Jane Doe"
 
-        let sql = "INSERT INTO author (full_name) VALUES (@full_name);
+        let sql = "
+            INSERT INTO author (full_name) VALUES (@full_name);
 
-                    SELECT author_id, full_name
-                    FROM   author
-                    WHERE  author_id = LAST_INSERT_ROWID();"
+            SELECT author_id, full_name
+            FROM   author
+            WHERE  author_id = LAST_INSERT_ROWID();"
+        
         let param = [ "full_name", SqlType.String fullName ]
+        
         conn
         |> Db.newCommand sql
         |> Db.setParams param
@@ -243,7 +256,9 @@ type Statements() =
         let fullName = "Jim Doe"
         let birthDate : DateTime option = None
 
-        let sql = "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
+        let sql = "
+            INSERT INTO author (full_name, birth_date) 
+            VALUES (@full_name, @birth_date);"
 
         let param = 
             [ "full_name", SqlType.String fullName
@@ -258,8 +273,13 @@ type Statements() =
     [<Fact>]
     member __.``INSERT author should fail and create DbError`` () =
         let fullName = "Jane Doe"
-        let sql = "INSERT INTO author (full_name, birth_date) VALUES (@full_name, @birth_date);"
+        
+        let sql = "
+            INSERT INTO author (full_name, birth_date) 
+            VALUES (@full_name, @birth_date);"
+        
         let param = [ "full_name", SqlType.String fullName ]
+        
         conn
         |> Db.newCommand sql
         |> Db.setParams param
@@ -269,6 +289,7 @@ type Statements() =
     [<Fact>]
     member __.``INSERT MANY authors then count to verify`` () =
         let sql = "INSERT INTO author (full_name) VALUES (@full_name);"
+        
         conn
         |> Db.newCommand sql
         |> Db.execMany
@@ -276,7 +297,12 @@ type Statements() =
               [ "full_name", SqlType.String "Donald Duck" ] ]
         |> ignore
 
-        let sql = "SELECT author_id, full_name FROM author WHERE full_name IN ('Bugs Bunny', 'Donald Duck')"
+        let sql = "
+            SELECT  author_id
+                  , full_name 
+            FROM    author 
+            WHERE   full_name IN ('Bugs Bunny', 'Donald Duck')"
+
         conn
         |> Db.newCommand sql
         |> Db.query Author.FromReader
@@ -287,7 +313,10 @@ type Statements() =
     member __.``INSERT TRAN MANY authors then count to verify async`` () =
         use tran = conn.TryBeginTransaction()
 
-        let sql = "INSERT INTO author (full_name) VALUES (@full_name);"
+        let sql = "
+            INSERT INTO author (full_name) 
+            VALUES (@full_name);"
+
         conn
         |> Db.newCommand sql
         |> Db.setTransaction tran
@@ -300,7 +329,12 @@ type Statements() =
 
         tran.TryCommit()
 
-        let sql = "SELECT author_id, full_name FROM author WHERE full_name IN ('Batman', 'Superman')"
+        let sql = "
+            SELECT  author_id
+                  , full_name 
+            FROM    author 
+            WHERE   full_name IN ('Batman', 'Superman')"
+
         conn
         |> Db.newCommand sql
         |> Db.Async.query Author.FromReader
@@ -311,13 +345,15 @@ type Statements() =
 
     [<Fact>]
     member __.``INSERT MANY should fail and create DbError`` () =
-        let sql = "INSERT INTO fake_author (full_name) VALUES (@full_name);"
+        let sql = "
+            INSERT INTO fake_author (full_name) 
+            VALUES (@full_name);"
+
         conn
         |> Db.newCommand sql
-        |> Db.execMany [
-                               [ "full_name", SqlType.String "Bugs Bunny" ]
-                               [ "full_name", SqlType.String "Donald Duck" ]
-                           ]
+        |> Db.execMany 
+            [ [ "full_name", SqlType.String "Bugs Bunny" ]
+              [ "full_name", SqlType.String "Donald Duck" ] ]
         |> shouldNotBeOk
 
     [<Fact>]
@@ -325,8 +361,10 @@ type Statements() =
         let testString = "A sample of bytes"
         let bytes = Text.Encoding.UTF8.GetBytes(testString)
 
-        let sql = "INSERT INTO file (data) VALUES (@data);
-                   SELECT data FROM file WHERE file_id = LAST_INSERT_ROWID();"
+        let sql = "
+            INSERT INTO file (data) VALUES (@data);
+            SELECT data FROM file WHERE file_id = LAST_INSERT_ROWID();"
+
         let param = [ "data", SqlType.Bytes bytes ]
 
         conn
