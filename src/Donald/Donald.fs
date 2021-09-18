@@ -45,22 +45,22 @@ exception FailedCastException of DataReaderCastError
 [<RequireQualifiedAccess>]
 type SqlType =
     | Null       
-    | String     of String
-    | AnsiString of String
-    | Boolean    of Boolean
-    | Byte       of Byte
-    | Char       of Char
-    | AnsiChar   of Char
-    | Decimal    of Decimal
-    | Double     of Double
+    | String     of string
+    | AnsiString of string
+    | Boolean    of bool
+    | Byte       of byte
+    | Char       of char
+    | AnsiChar   of char
+    | Decimal    of decimal
+    | Double     of double
     | Float      of float
     | Guid       of Guid
-    | Int16      of Int16
-    | Int32      of Int32
+    | Int16      of int16
+    | Int32      of int32
     | Int        of int32
-    | Int64      of Int64
+    | Int64      of int64
     | DateTime   of DateTime    
-    | Bytes      of Byte[]
+    | Bytes      of byte[]
 
 /// Specifies an input parameter for an IDbCommand.
 [<Struct>]
