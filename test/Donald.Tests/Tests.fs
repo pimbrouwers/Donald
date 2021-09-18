@@ -166,7 +166,7 @@ type Statements() =
         |> Db.querySingle (fun rd ->
             {|
                 FullName = rd.ReadStringOption "full_name" |> Option.defaultValue null
-                Age = rd.ReadInt32Option "age" |> Option.asNullable
+                Age = rd.ReadInt32Option "age" |> Option.toNullable
             |})
         |> shouldNotBeError (fun result ->
             result.IsSome         |> should equal true
