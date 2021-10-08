@@ -25,7 +25,7 @@ Two sets of type [extensions](#reading-values) for `IDataReader` are included to
 
 - Support all ADO implementations.
 - Provide a [natural DSL](#quick-start) for interacting with databases.
-- Enable asynchronuos workflows.
+- Enable asynchronous workflows.
 - Provide explicit error flow control.
 - Make object mapping easier.
 
