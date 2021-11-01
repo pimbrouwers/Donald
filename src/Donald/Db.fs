@@ -95,7 +95,7 @@ module Db =
             dbUnit.Command
 
     /// Execute paramterized query and return IDataReader
-    let read (cmdBehavior : CommandBehavior) (dbUnit : DbUnit) : IDataReader =
+    let read (dbUnit : DbUnit) : IDataReader =
         dbUnit.Command.ExecReader(dbUnit.CommandBehavior)
 
     module Async =
@@ -163,11 +163,11 @@ module Db =
             tryDoAsync inner dbUnit.Command
 
         /// Asynchronously execute paramterized query and return IDataReader
-        let read (cmdBehavior : CommandBehavior) (dbUnit : DbUnit) : Task<IDataReader> =
+        let read (dbUnit : DbUnit) : Task<IDataReader> =
             let cmd' = dbUnit.Command :?> DbCommand
 
             task {
-                let! rd = cmd'.ExecReaderAsync(cmdBehavior)
+                let! rd = cmd'.ExecReaderAsync(dbUnit.CommandBehavior)
                 let result = rd :> IDataReader
                 return result
             }
