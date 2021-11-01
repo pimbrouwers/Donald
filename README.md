@@ -52,14 +52,13 @@ module Author =
 
 let authors : DbResult<Author list> =    
     let sql = "
-    SELECT  author_id
-          , full_name 
+    SELECT  full_name 
     FROM    author 
     WHERE   author_id = @author_id"
 
-    let param = [ "author_id", SqlType.Int 1]
+    let param = [ "author_id", SqlType.Int 1 ]
 
-    use conn = new SQLiteConnection("{your connection string}")
+    use conn = new SQLiteConnection "{your connection string}"
     
     conn
     |> Db.newCommand sql
