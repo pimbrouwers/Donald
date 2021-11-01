@@ -50,7 +50,7 @@ module Author =
   let ofDataReader (rd : IDataReader) : Author =      
       { FullName = rd.ReadString "full_name" }
 
-let authors : DbResult<Author list> =    
+let authors : Result<Author list, DbError> =    
     let sql = "
     SELECT  full_name 
     FROM    author 
@@ -93,7 +93,7 @@ module Author -
 // Fluent
 conn
 |> Db.newCommand "SELECT author_id, full_name FROM author"
-|> Db.query Author.ofDataReader // DbResult<Author list>
+|> Db.query Author.ofDataReader // Result<Author list, DbError>
 
 // Expression
 dbCommand conn {
@@ -101,12 +101,12 @@ dbCommand conn {
                    , full_name 
              FROM    author"
 }
-|> Db.query Author.ofDataReader // DbResult<Author list>
+|> Db.query Author.ofDataReader // Result<Author list, DbError>
 
 // Async
 conn
 |> Db.newCommand "SELECT author_id, full_name FROM author"
-|> Db.Async.query Author.ofDataReader // Task<DbResult<Author list>>
+|> Db.Async.query Author.ofDataReader // Task<Result<Author list, DbError>>
 ```
 
 ### Query for a single strongly-typed result
@@ -116,7 +116,7 @@ conn
 conn
 |> Db.newCommand "SELECT author_id, full_name FROM author"
 |> Db.setParams [ "author_id", SqlType.Int 1 ]
-|> Db.querySingle Author.ofDataReader // DbResult<Author option>
+|> Db.querySingle Author.ofDataReader // Result<Author option, DbError>
 
 // Expression
 dbCommand conn {
@@ -126,13 +126,13 @@ dbCommand conn {
              WHERE   author_id = @author_id"
     cmdParam [ "author_id", SqlType.Int 1]
 } 
-|> Db.querySingle Author.ofDataReader // DbResult<Author option>
+|> Db.querySingle Author.ofDataReader // Result<Author option, DbError>
 
 // Async
 conn
 |> Db.newCommand "SELECT author_id, full_name FROM author"
 |> Db.setParams [ "author_id", SqlType.Int 1 ]
-|> Db.Async.querySingle Author.ofDataReader // Task<DbResult<Author option>>
+|> Db.Async.querySingle Author.ofDataReader // Task<Result<Author option, DbError>>
 ```
 
 ### Execute a statement
@@ -142,20 +142,20 @@ conn
 conn
 |> Db.newCommand "INSERT INTO author (full_name)"
 |> Db.setParams [ "full_name", SqlType.String "John Doe" ]
-|> Db.exec // DbResult<unit>
+|> Db.exec // Result<unit, DbError>
 
 // Expression 
 dbCommand conn {
     cmdText "INSERT INTO author (full_name)"
     cmdParam [ "full_name", SqlType.String "John Doe" ]
 }
-|> Db.exec // DbResult<unit>
+|> Db.exec // Result<unit, DbError>
 
 // Async
 conn
 |> Db.newCommand "INSERT INTO author (full_name)"
 |> Db.setParams [ "full_name", SqlType.String "John Doe" ]
-|> Db.Async.exec // Task<DbResult<unit>>
+|> Db.Async.exec // Task<Result<unit, DbError>>
 ```
 
 ### Execute a statement many times
