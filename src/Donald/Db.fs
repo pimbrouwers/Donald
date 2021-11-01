@@ -39,11 +39,11 @@ module Db =
         dbUnit.Command.Transaction <- tran
         dbUnit
 
-    let private tryDo (fn : IDbCommand -> 'a) (dbUnit : IDbCommand) : Result<'a, DbError> =
+    let private tryDo (fn : IDbCommand -> 'a) (cmd : IDbCommand) : Result<'a, DbError> =
         try
-            dbUnit.Connection.TryOpenConnection() |> ignore
-            let result = fn dbUnit
-            dbUnit.Dispose()
+            cmd.Connection.TryOpenConnection() |> ignore
+            let result = fn cmd
+            cmd.Dispose()
             Ok result
         with
         | FailedOpenConnectionException e -> Error (DbConnectionError e)
@@ -79,19 +79,15 @@ module Db =
     /// Execute parameterized query, enumerate all records and apply mapping.
     let query (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Result<'a list, DbError> =
         tryDo (fun cmd ->
-            use rd = cmd.ExecReader(CommandBehavior.SequentialAccess) :?> 'reader
-            let results = [ while rd.Read() do yield map rd ]
-            rd.Close() |> ignore
-            results)
+            use rd = cmd.ExecReader(dbUnit.CommandBehavior) :?> 'reader
+            [ while rd.Read() do yield map rd ])
             dbUnit.Command
 
     /// Execute paramterized query, read only first record and apply mapping.
     let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Result<'a option, DbError> =
         tryDo (fun cmd ->
             use rd = cmd.ExecReader(dbUnit.CommandBehavior) :?> 'reader
-            let result = if rd.Read() then Some(map rd) else None
-            rd.Close() |> ignore
-            result)
+            if rd.Read() then Some(map rd) else None)
             dbUnit.Command
 
     /// Execute paramterized query and return IDataReader
@@ -145,9 +141,7 @@ module Db =
             let inner = fun (cmd : IDbCommand) -> task {
                 use! rd = (cmd :?> DbCommand).ExecReaderAsync(dbUnit.CommandBehavior)
                 let rd' = rd :?> 'reader
-                let results = [ while rd.Read() do map rd' ]
-                rd.Close() |> ignore
-                return results
+                return [ while rd.Read() do map rd' ]
             }
             tryDoAsync inner dbUnit.Command
 
@@ -156,9 +150,7 @@ module Db =
             let inner = fun (cmd : DbCommand) -> task {
                 use! rd = cmd.ExecReaderAsync(dbUnit.CommandBehavior)
                 let rd' = rd :?> 'reader
-                let result = if rd.Read() then Some(map rd') else None
-                rd.Close() |> ignore
-                return result
+                return if rd.Read() then Some(map rd') else None
             }
             tryDoAsync inner dbUnit.Command
 

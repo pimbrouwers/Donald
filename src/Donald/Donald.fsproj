@@ -20,7 +20,7 @@
 
     <!-- NuGet config -->
     <PackageId>Donald</PackageId>
-    <PackageVersion>6.2.5</PackageVersion>
+    <PackageVersion>7.0.0-alpha1</PackageVersion>
     <PackageTags>fsharp;functional;database;sql;ado;adonet</PackageTags>        
     <PackageProjectUrl>https://github.com/pimbrouwers/Donald</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

@@ -204,7 +204,10 @@ type ExecutionTests() =
 
         conn
         |> Db.newCommand sql
-        |> Db.querySingle Author.FromReader
+        |> Db.setCommandBehavior CommandBehavior.Default
+        |> Db.querySingle (fun rd -> 
+            { FullName = rd.ReadString "full_name"
+              AuthorId = rd.ReadInt32 "author_id" })
         |> shouldNotBeError (fun result ->
             result.IsSome         |> should equal true
             result.Value.AuthorId |> should equal 1)
@@ -219,7 +222,9 @@ type ExecutionTests() =
         conn
         |> Db.newCommand sql
         |> Db.setCommandBehavior CommandBehavior.Default
-        |> Db.Async.querySingle Author.FromReader
+        |> Db.Async.querySingle (fun rd -> 
+            { FullName = rd.ReadString "full_name"
+              AuthorId = rd.ReadInt32 "author_id" })
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> shouldNotBeError (fun result ->
@@ -424,7 +429,7 @@ type ExecutionTests() =
         use rd =
             conn
             |> Db.newCommand sql
-            |> Db.read CommandBehavior.Default
+            |> Db.read
 
         let result = [ while rd.Read() do Author.FromReader rd ]
 
@@ -441,7 +446,7 @@ type ExecutionTests() =
         use rd =
             conn
             |> Db.newCommand sql
-            |> Db.Async.read CommandBehavior.Default
+            |> Db.Async.read
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
