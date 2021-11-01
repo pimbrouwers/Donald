@@ -181,6 +181,27 @@ conn
                        "full_name", SqlType.String "Jane Doe" ]                           
 ```
 
+```fsharp
+// Fluent
+conn
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
+|> Db.exec // Result<unit, DbError>
+
+// Expression 
+dbCommand conn {
+    cmdText "INSERT INTO author (full_name)"
+    cmdParam [ "full_name", SqlType.String "John Doe" ]
+}
+|> Db.exec // Result<unit, DbError>
+
+// Async
+conn
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
+|> Db.Async.exec // Task<Result<unit, DbError>>
+```
+
 ### Execute statements within an explicit transaction
 
 Donald exposes most of it's functionality through `dbCommand { ... }` and the `Db` module. But three `IDbTransaction` type extension are exposed to make dealing with transactions safer:
@@ -315,6 +336,25 @@ exception FailedExecutionError of DbExecutionError
 By default, Donald will consume `IDataReader` using `CommandBehavior.SequentialAccess`. This allows the rows and columns to be read in chunks (i.e., streamed), but forward-only. As opposed to being completely read into memory all at once, and readable in any direction. The benefits of this are particular felt when reading large CLOB (string) and BLOB (binary) data. But is also a measureable performance gain for standard query results as well.
 
 The only nuance to sequential access is that **columns must be read in the same order found in the `SELECT` clause**. Aside from that, there is no noticeable differene from the perspective of a library consumer.
+
+Configuring `CommandBehavior` can be done two ways:
+
+```fsharp
+// Fluent 
+conn
+|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.setCommandBehavior CommandBehavior.Default
+|> Db.query Author.ofDataReader
+
+// Expression
+dbCommand conn {
+    cmdText "SELECT  author_id
+                   , full_name 
+             FROM    author"
+    cmdBehavior CommandBehavior.Default
+}
+|> Db.query Author.ofDataReader
+```
 
 ## Find a bug?
 
