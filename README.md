@@ -13,21 +13,18 @@ This library is named after him.
 
 ## Key Features
 
-Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) safer and *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO.NET implementations.
-
-The library includes multiple computation expressions responsible for [building `IDbCommand` instances](#command-builder), executed using the `Db` module and two [result-based expressions](#execute-statements-within-an-explicit-transaction) for helping with dependent commands (avoiding the dreaded "Pyramid of Doom").
-
-Two sets of type [extensions](#reading-values) for `IDataReader` are included to make manual object mapping a lot easier.
+Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) safer and *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO.NET implementations.
 
 > If you came looking for an ORM (object-relational mapper), this is not the library for you. And may the force be with you.
 
 ## Design Goals 
 
 - Support all ADO implementations.
-- Provide a [natural DSL](#quick-start) for interacting with databases.
+- Provide a succinct API for interacting with databases.
 - Enable asynchronuos workflows.
 - Provide explicit error flow control.
 - Make object mapping easier.
+- Improve data access performance.
 
 ## Getting Started
 
@@ -90,6 +87,8 @@ module Author -
 ```
 
 ### Query for multiple strongly-typed results
+
+> Important: Donald is set to use `CommandBehavior.SequentialAccess` by default. See [performance](#performance) for more information.
 
 ```fsharp
 // Fluent
@@ -191,8 +190,6 @@ Donald exposes most of it's functionality through `dbCommand { ... }` and the `D
 - `TryCommit()` commits a transaction or raises `CouldNotCommitTransactionError` and rolls back
 - `TryRollback()` rolls back a transaction or raises `CouldNotRollbackTransactionError`
 
-The library also contains a computation expression `dbResult { ... }` for dealing with `DbResult<'a>` instances, which is especially useful when you are working with dependent commands, common during transactional work.
-
 ```fsharp
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
 use tran = conn.TryBeginTransaction()
@@ -247,6 +244,7 @@ At the core of Donald is a computation expression for building `IDbCommand` inst
 3. `cmdType` - Type of command you want to execute (default: `CommandType.Text`) 
 4. `cmdTran` - Transaction to assign to command.
 5. `cmdTimeout` - The maximum time a command can run for (default: underlying DbCommand default, usually 30 seconds)
+6. `cmdBehavior` - The `CommandBehavior` setting for the `IDbCommand` (default: `CommandBehavior.SequentialAccess`).
 
 ## Reading Values
 
@@ -259,45 +257,44 @@ To make obtaining values from reader more straight-forward, 2 sets of extension 
 Assuming we have an active `IDataReader` called `rd` and are currently reading a row, the following extension methods are available to simplify reading values:
 
 ```fsharp
-rd.ReadString "some_field"           // string -> string
-rd.ReadBoolean "some_field"          // string -> bool
-rd.ReadByte "some_field"             // string -> byte
-rd.ReadChar "some_field"             // string -> char
-rd.ReadDateTime "some_field"         // string -> DateTime
-rd.ReadDecimal "some_field"          // string -> Decimal
-rd.ReadDouble "some_field"           // string -> Double
-rd.ReadFloat "some_field"            // string -> float32
-rd.ReadGuid "some_field"             // string -> Guid
-rd.ReadInt16 "some_field"            // string -> int16
-rd.ReadInt32 "some_field"            // string -> int32
-rd.ReadInt64 "some_field"            // string -> int64
-rd.ReadBytes "some_field"            // string -> byte[]
+rd.ReadString "some_field"         // string -> string
+rd.ReadBoolean "some_field"        // string -> bool
+rd.ReadByte "some_field"           // string -> byte
+rd.ReadChar "some_field"           // string -> char
+rd.ReadDateTime "some_field"       // string -> DateTime
+rd.ReadDecimal "some_field"        // string -> Decimal
+rd.ReadDouble "some_field"         // string -> Double
+rd.ReadFloat "some_field"          // string -> float32
+rd.ReadGuid "some_field"           // string -> Guid
+rd.ReadInt16 "some_field"          // string -> int16
+rd.ReadInt32 "some_field"          // string -> int32
+rd.ReadInt64 "some_field"          // string -> int64
+rd.ReadBytes "some_field"          // string -> byte[]
 
-rd.ReadStringOption "some_field"         // string -> string option
-rd.ReadBooleanOption "some_field"        // string -> bool option
-rd.ReadByteOption "some_field"           // string -> byte option
-rd.ReadCharOption "some_field"           // string -> char option
-rd.ReadDateTimeOption "some_field"       // string -> DateTime option
-rd.ReadDecimalOption "some_field"        // string -> Decimal option
-rd.ReadDoubleOption "some_field"         // string -> Double option
-rd.ReadFloatOption "some_field"          // string -> float32 option
-rd.ReadGuidOption "some_field"           // string -> Guid option
-rd.ReadInt16Option "some_field"          // string -> int16 option
-rd.ReadInt32Option "some_field"          // string -> int32 option
-rd.ReadInt64Option "some_field"          // string -> int64 option
-rd.ReadBytesOption "some_field"          // string -> byte[] option
+rd.ReadStringOption "some_field"   // string -> string option
+rd.ReadBooleanOption "some_field"  // string -> bool option
+rd.ReadByteOption "some_field"     // string -> byte option
+rd.ReadCharOption "some_field"     // string -> char option
+rd.ReadDateTimeOption "some_field" // string -> DateTime option
+rd.ReadDecimalOption "some_field"  // string -> Decimal option
+rd.ReadDoubleOption "some_field"   // string -> Double option
+rd.ReadFloatOption "some_field"    // string -> float32 option
+rd.ReadGuidOption "some_field"     // string -> Guid option
+rd.ReadInt16Option "some_field"    // string -> int16 option
+rd.ReadInt32Option "some_field"    // string -> int32 option
+rd.ReadInt64Option "some_field"    // string -> int64 option
+rd.ReadBytesOption "some_field"    // string -> byte[] option
 ```
 
 ## Exceptions
 
-Donald exposes six custom exception types to represent failure at different points in the lifecycle:
+Donald exposes four custom exception types to represent failure at different points in the execution-cycle.
 
 ```fsharp
-exception ConnectionBusyError
-exception CouldNotOpenConnectionError of exn
-exception CouldNotBeginTransactionError of exn
-exception CouldNotCommitTransactionError of exn
-exception CouldNotRollbackTransactionError of exn
+exception FailedOpenConnectionException of DbConnectionError
+exception FailedTransactionException of DbTransactionError
+exception FailedExecutionException of DbExecutionError
+exception FailedCastException of DataReaderCastError
 ```
 
 During command execution failures the `Error` case of `DbResult<'a>` is used, that encapsulates a `DbExecutionError` record. These are produced internally as a `FailedExecutionError` and transformed by the `Db` module.
@@ -313,6 +310,12 @@ exception FailedExecutionError of DbExecutionError
 ```
 
 > It's important to note that Donald will only raise these exceptions in _exceptional_ situations. 
+
+## Performance
+
+By default, Donald will consume `IDataReader` using `CommandBehavior.SequentialAccess`. This allows the rows and columns to be read in chunks (i.e., streamed), but forward-only. As opposed to being completely read into memory all at once, and readable in any direction. The benefits of this are particular felt when reading large CLOB (string) and BLOB (binary) data. But is also a measureable performance gain for standard query results as well.
+
+The only nuance to sequential access is that **columns must be read in the same order found in the `SELECT` clause**. Aside from that, there is no noticeable differene from the perspective of a library consumer.
 
 ## Find a bug?
 

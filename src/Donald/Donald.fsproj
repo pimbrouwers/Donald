@@ -38,7 +38,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="Donald.fs" />
+    <Compile Include="Core.fs" />
+    <Compile Include="Extensions.fs" />
+    <Compile Include="Db.fs" />
+    <Compile Include="Builder.fs" />
   </ItemGroup>
 
   <ItemGroup>
