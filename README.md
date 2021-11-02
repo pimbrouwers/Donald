@@ -214,7 +214,7 @@ Donald exposes most of it's functionality through `dbCommand { ... }` and the `D
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
 use tran = conn.TryBeginTransaction()
 
-// Build our IDbCommand's
+// Build our DbUnit's
 let param = [ "full_name", SqlType.String "John Doe" ]
 
 let insertCmd = dbCommand conn {
@@ -232,7 +232,7 @@ let selectCmd = dbCommand conn {
     cmdTran  tran
 } 
 
-// Execute IDbCommand's
+// Execute DbUnit's
 let result = dbResult {
   do! insertCmd |> Db.exec 
   return! selectCmd |> Db.querySingle Author.ofDataReader
@@ -257,14 +257,14 @@ let result = dbResultTask {
 
 ## Command Builder
 
-At the core of Donald is a computation expression for building `IDbCommand` instances. It exposes five modification points:
+At the core of Donald is a computation expression for building `DbUnit` instances, which encapsulate `IDbCommand` allowing additional properties to be configured prior to execution. It exposes five modification points:
 
 1. `cmdText` - SQL statement you intend to execute (default: `String.empty`).
 2. `cmdParam` - Input parameters for your statement (default: `[]`). 
 3. `cmdType` - Type of command you want to execute (default: `CommandType.Text`) 
 4. `cmdTran` - Transaction to assign to command.
 5. `cmdTimeout` - The maximum time a command can run for (default: underlying DbCommand default, usually 30 seconds)
-6. `cmdBehavior` - The `CommandBehavior` setting for the `IDbCommand` (default: `CommandBehavior.SequentialAccess`).
+6. `cmdBehavior` - The `CommandBehavior` setting for the `DbUnit` (default: `CommandBehavior.SequentialAccess`).
 
 ## Reading Values
 
@@ -335,7 +335,7 @@ exception FailedExecutionError of DbExecutionError
 
 By default, Donald will consume `IDataReader` using `CommandBehavior.SequentialAccess`. This allows the rows and columns to be read in chunks (i.e., streamed), but forward-only. As opposed to being completely read into memory all at once, and readable in any direction. The benefits of this are particular felt when reading large CLOB (string) and BLOB (binary) data. But is also a measureable performance gain for standard query results as well.
 
-The only nuance to sequential access is that **columns must be read in the same order found in the `SELECT` clause**. Aside from that, there is no noticeable differene from the perspective of a library consumer.
+The only nuance to sequential access is that **columns must be read in the same order found in the `SELECT` clause**. Aside from that, there is no noticeable difference from the perspective of a library consumer.
 
 Configuring `CommandBehavior` can be done two ways:
 
