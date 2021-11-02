@@ -8,7 +8,7 @@ open FSharp.Control.Tasks
 
 [<RequireQualifiedAccess>]
 module Db =
-    /// Create a new IDbCommand instance using the provided IDbConnection.
+    /// Create a new DbUnit instance using the provided IDbConnection.
     let newCommand (commandText : string) (conn : IDbConnection) =
         let cmd = conn.CreateCommand()
         cmd.CommandText <- commandText
