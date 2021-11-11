@@ -9,7 +9,7 @@ If you're a programmer and have used a database, he's impacted your life in a bi
 
 This library is named after him.
 
-> Honorable mention goes to [@dysme](https://github.com/dsyme) another important Donald and F#'s [BDFL](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life).
+> Honorable mention goes to [@dsyme](https://github.com/dsyme) another important Donald and F#'s [BDFL](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life).
 
 ## Key Features
 
