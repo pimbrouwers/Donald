@@ -90,47 +90,45 @@ module Author -
 > Important: Donald is set to use `CommandBehavior.SequentialAccess` by default. See [performance](#performance) for more information.
 
 ```fsharp
+let sql = "SELECT author_id, full_name FROM author"
+
 // Fluent
 conn
-|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.newCommand sql
 |> Db.query Author.ofDataReader // Result<Author list, DbError>
 
 // Expression
 dbCommand conn {
-    cmdText "SELECT  author_id
-                   , full_name 
-             FROM    author"
+    cmdText sql
 }
 |> Db.query Author.ofDataReader // Result<Author list, DbError>
 
 // Async
 conn
-|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.newCommand sql
 |> Db.Async.query Author.ofDataReader // Task<Result<Author list, DbError>>
 ```
 
 ### Query for a single strongly-typed result
 
 ```fsharp
+let sql = "SELECT author_id, full_name FROM author"
 // Fluent
 conn
-|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.newCommand sql
 |> Db.setParams [ "author_id", SqlType.Int 1 ]
 |> Db.querySingle Author.ofDataReader // Result<Author option, DbError>
 
 // Expression
 dbCommand conn {
-    cmdText "SELECT  author_id
-                   , full_name 
-             FROM    author 
-             WHERE   author_id = @author_id"
+    cmdText sql
     cmdParam [ "author_id", SqlType.Int 1]
 } 
 |> Db.querySingle Author.ofDataReader // Result<Author option, DbError>
 
 // Async
 conn
-|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.newCommand sql
 |> Db.setParams [ "author_id", SqlType.Int 1 ]
 |> Db.Async.querySingle Author.ofDataReader // Task<Result<Author option, DbError>>
 ```
@@ -138,67 +136,77 @@ conn
 ### Execute a statement
 
 ```fsharp
+let sql = "INSERT INTO author (full_name)"
+
+let param = [ "full_name", SqlType.String "John Doe" ]
+
 // Fluent
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
-|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
+|> Db.newCommand sql
+|> Db.setParams param
 |> Db.exec // Result<unit, DbError>
 
 // Expression 
 dbCommand conn {
-    cmdText "INSERT INTO author (full_name)"
-    cmdParam [ "full_name", SqlType.String "John Doe" ]
+    cmdText sql
+    cmdParam param
 }
 |> Db.exec // Result<unit, DbError>
 
 // Async
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
-|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
+|> Db.newCommand sql
+|> Db.setParams param
 |> Db.Async.exec // Task<Result<unit, DbError>>
 ```
 
 ### Execute a statement many times
 
 ```fsharp
+let sql = "INSERT INTO author (full_name)" 
+
+let param = 
+    [ "full_name", SqlType.String "John Doe"
+      "full_name", SqlType.String "Jane Doe" ]
+
 // Fluent
 conn
-|> Db.newCommand "INSERT INTO author (full_name)" 
-|> Db.execMany [ "full_name", SqlType.String "John Doe"
-                 "full_name", SqlType.String "Jane Doe" ]
+|> Db.newCommand sql
+|> Db.execMany param
 
 // Expression
 dbCommand conn {
-   cmdText "INSERT INTO author (full_name)" 
+   cmdText sql
 }
-|> Db.execMany [ "full_name", SqlType.String "John Doe"
-                 "full_name", SqlType.String "Jane Doe" ]
+|> Db.execMany param
 
 // Async
 conn
-|> Db.newCommand "INSERT INTO author (full_name)" 
-|> Db.Async.execMany [ "full_name", SqlType.String "John Doe"
-                       "full_name", SqlType.String "Jane Doe" ]                           
+|> Db.newCommand sql
+|> Db.Async.execMany param
 ```
 
 ```fsharp
+let sql = "INSERT INTO author (full_name)"
+
+let param = [ "full_name", SqlType.String "John Doe" ]
 // Fluent
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
-|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
+|> Db.newCommand sql
+|> Db.setParams param
 |> Db.exec // Result<unit, DbError>
 
 // Expression 
 dbCommand conn {
-    cmdText "INSERT INTO author (full_name)"
-    cmdParam [ "full_name", SqlType.String "John Doe" ]
+    cmdText sql
+    cmdParam param
 }
 |> Db.exec // Result<unit, DbError>
 
 // Async
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
-|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
+|> Db.newCommand sql
+|> Db.setParams param
 |> Db.Async.exec // Task<Result<unit, DbError>>
 ```
 
@@ -214,45 +222,32 @@ Donald exposes most of it's functionality through `dbCommand { ... }` and the `D
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
 use tran = conn.TryBeginTransaction()
 
-// Build our DbUnit's
+let insertSql = "INSERT INTO author (full_name)"
+
 let param = [ "full_name", SqlType.String "John Doe" ]
 
 let insertCmd = dbCommand conn {
-    cmdText "INSERT INTO author (full_name)"
+    cmdText insertSql
     cmdParam param
     cmdTran  tran
 }
 
+let selectSql = "SELECT author_id, full_name FROM author WHERE full_name = @full_name"
+
 let selectCmd = dbCommand conn {
-    cmdText "SELECT  author_id
-                   , full_name 
-             FROM    author 
-             WHERE   full_name = @full_name"
+    cmdText selectSql
     cmdParam param
     cmdTran  tran
 } 
 
-// Execute DbUnit's
+// Execute commands
 let result = dbResult {
   do! insertCmd |> Db.exec 
   return! selectCmd |> Db.querySingle Author.ofDataReader
 }
 
 // Attempt to commit, rollback on failure and throw CouldNotCommitTransactionError
-tran.TryCommit() // or, safely rollback tran.TryRollback()
-```
-
-This functionality also fully support task-based asynchronous workflows via `dbResultTask { ... }`:
-
-```fsharp
-// ... rest of code from above
-
-let result = dbResultTask {
-  do! insertCmd |> Db.Async.exec 
-  return! selectCmd |> Db.Async.querySingle Author.ofDataReader
-}
-
-// ... rest of code from above
+tran.TryCommit() 
 ```
 
 ## Command Builder
@@ -340,17 +335,16 @@ The only nuance to sequential access is that **columns must be read in the same 
 Configuring `CommandBehavior` can be done two ways:
 
 ```fsharp
+let sql = "SELECT author_id, full_name FROM author"
 // Fluent 
 conn
-|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.newCommand sql
 |> Db.setCommandBehavior CommandBehavior.Default
 |> Db.query Author.ofDataReader
 
 // Expression
 dbCommand conn {
-    cmdText "SELECT  author_id
-                   , full_name 
-             FROM    author"
+    cmdText sql
     cmdBehavior CommandBehavior.Default
 }
 |> Db.query Author.ofDataReader
