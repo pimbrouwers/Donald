@@ -40,4 +40,8 @@
     <Compile Include="Builder.fs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="6.0.*" />
+  </ItemGroup>
+
 </Project>
