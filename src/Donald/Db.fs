@@ -46,28 +46,20 @@ module Db =
             cmd.Dispose()
             Ok result
         with
-        | FailedOpenConnectionException e -> Error (DbConnectionError e)
-        | FailedTransactionException e -> Error (DbTransactionError e)
-        | FailedExecutionException e -> Error (DbExecutionError e)
-        | FailedCastException e -> Error (DataReaderCastError e)
+        | ManagedException error -> Error error
 
     /// Execute parameterized query with no results.
     let exec (dbUnit : DbUnit) : Result<unit, DbError> =
-        tryDo (fun dbUnit -> dbUnit.Exec()) dbUnit.Command
+        tryDo (fun cmd -> cmd.Exec()) dbUnit.Command
 
     /// Execute parameterized query many times with no results.
     let execMany (param : RawDbParams list) (dbUnit : DbUnit) : Result<unit, DbError> =
-        try
+        let inner (cmd : IDbCommand) =
             for p in param do
                 let dbParams = DbParams.create p
-                dbUnit.Command.SetDbParams(dbParams).Exec() |> ignore
+                cmd.SetDbParams(dbParams).Exec()
 
-            Ok ()
-        with
-        | FailedOpenConnectionException e -> Error (DbConnectionError e)
-        | FailedTransactionException e -> Error (DbTransactionError e)
-        | FailedExecutionException e -> Error (DbExecutionError e)
-        | FailedCastException e -> Error (DataReaderCastError e)
+        tryDo inner dbUnit.Command
 
     /// Execute scalar query and box the result.
     let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Result<'a, DbError> =
@@ -102,10 +94,7 @@ module Db =
                     let! result = fn (cmd :?> DbCommand)
                     return (Ok result)
                 with
-                | FailedOpenConnectionException e -> return Error (DbConnectionError e)
-                | FailedTransactionException e -> return Error (DbTransactionError e)
-                | FailedExecutionException e -> return Error (DbExecutionError e)
-                | FailedCastException e -> return Error (DataReaderCastError e)
+                | ManagedException error -> return Error error
             }
 
         /// Asynchronously execute parameterized query with no results.

@@ -1,4 +1,4 @@
-namespace Donald
+﻿namespace Donald
 
 open System
 open System.Data
@@ -21,7 +21,7 @@ type DbTransactionStep =  TxBegin | TxCommit | TxRollback
 /// Details of transaction failure.
 type DbTransactionError =
     { Step : DbTransactionStep
-      Error : exn}
+      Error : exn }
 
 /// Details of failure to execute database command.
 type DbExecutionError =
@@ -33,16 +33,19 @@ type DataReaderCastError =
     { FieldName : string
       Error : InvalidCastException }
 
+/// Details of failure to access a IDataRecord column by name.
+type DataReaderInvalidColumnError =
+    { ColumnName : string
+      Error : IndexOutOfRangeException }
+
 type DbError =
     | DbConnectionError of DbConnectionError
     | DbTransactionError of DbTransactionError
     | DbExecutionError of DbExecutionError
     | DataReaderCastError of DataReaderCastError
+    | DataReaderInvalidColumnError of DataReaderInvalidColumnError
 
-exception FailedOpenConnectionException of DbConnectionError
-exception FailedTransactionException of DbTransactionError
-exception FailedExecutionException of DbExecutionError
-exception FailedCastException of DataReaderCastError
+exception ManagedException of DbError
 
 /// Represents the supported data types for database IO.
 [<RequireQualifiedAccess>]

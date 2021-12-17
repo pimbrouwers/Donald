@@ -16,11 +16,11 @@ module Extensions =
                 if this.State = ConnectionState.Closed then
                     this.Open()
             with ex ->
-                let error =
-                    { ConnectionString = this.ConnectionString
-                      Error = ex }
-
-                raise (FailedOpenConnectionException error)
+                let error = DbConnectionError {
+                    ConnectionString = this.ConnectionString
+                    Error = ex
+                }
+                raise (ManagedException error)
 
         /// Safely attempt to create a new IDbTransaction or
         /// return CouldNotBeginTransactionException.
@@ -30,11 +30,11 @@ module Extensions =
                 this.BeginTransaction()
             with
             | ex ->
-                let error =
-                    { Step = TxBegin
-                      Error = ex }
-
-                raise (FailedTransactionException error)
+                let error = DbTransactionError {
+                    Step = TxBegin
+                    Error = ex
+                }
+                raise (ManagedException error)
 
     type IDbTransaction with
         /// Safely attempt to rollback an IDbTransaction.
@@ -43,11 +43,11 @@ module Extensions =
                 if not(isNull this)
                    && not(isNull this.Connection) then this.Rollback()
             with ex  ->
-                let error =
-                    { Step = TxRollback
-                      Error = ex }
-
-                raise (FailedTransactionException error)
+                let error = DbTransactionError {
+                    Step = TxRollback
+                    Error = ex
+                }
+                raise (ManagedException error)
 
         /// Safely attempt to commit an IDbTransaction.
         /// Will rollback in the case of Exception.
@@ -61,10 +61,11 @@ module Extensions =
                 /// implementations do not. So in all cases try rolling back
                 this.TryRollback()
 
-                let error =
-                    { Step = TxCommit
-                      Error = ex }
-                raise (FailedTransactionException error)
+                let error = DbTransactionError {
+                    Step = TxCommit
+                    Error = ex
+                }
+                raise (ManagedException error)
 
     type IDbCommand with
         member internal this.SetDbParams(dbParams : DbParams) =
@@ -149,7 +150,12 @@ module Extensions =
             try
                 fn this
             with
-            | :? DbException as ex -> raise (FailedExecutionException ({ Statement = this.CommandText; Error = ex }))
+            | :? DbException as ex ->
+                let error = DbExecutionError {
+                    Statement = this.CommandText
+                    Error = ex
+                }
+                raise (ManagedException error)
 
         member internal this.Exec () =
             this.TryDo (fun this -> this.ExecuteNonQuery() |> ignore)
@@ -162,7 +168,12 @@ module Extensions =
             try
                 fn this
             with
-            | :? DbException as ex -> raise (FailedExecutionException ({ Statement = this.CommandText; Error = ex }))
+            | :? DbException as ex ->
+                let error = DbExecutionError {
+                    Statement = this.CommandText
+                    Error = ex
+                }
+                raise (ManagedException error)
 
         member internal this.SetDbParams(param : DbParams) =
             (this :> IDbCommand).SetDbParams(param) :?> DbCommand
@@ -176,7 +187,18 @@ module Extensions =
     /// IDataReader extensions
     type IDataReader with
         member private this.GetOrdinalOption (name : string) =
-            let i = this.GetOrdinal(name)
+            let getColumnIndex name =
+                try
+                    this.GetOrdinal(name)
+                with
+                | :? IndexOutOfRangeException as ex ->
+                    let error = DataReaderInvalidColumnError {
+                        ColumnName = name
+                        Error = ex
+                    }
+                    raise (ManagedException error)
+
+            let i = getColumnIndex name
             match this.IsDBNull(i) with
             | true  -> None
             | false -> Some(i)
@@ -187,11 +209,11 @@ module Extensions =
                     map v
                 with
                 | :? InvalidCastException as ex ->
-                    let error =
-                        { FieldName = name
-                          Error = ex }
-
-                    raise (FailedCastException error)
+                    let error = DataReaderCastError {
+                        FieldName = name
+                        Error = ex
+                    }
+                    raise (ManagedException error)
 
             this.GetOrdinalOption(name)
             |> Option.map fn

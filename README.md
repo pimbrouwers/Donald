@@ -301,30 +301,52 @@ rd.ReadInt64Option "some_field"    // string -> int64 option
 rd.ReadBytesOption "some_field"    // string -> byte[] option
 ```
 
-## Exceptions
+## Errors handling
 
-Donald exposes four custom exception types to represent failure at different points in the execution-cycle.
+Donald exposes `DbError` type to represent failure at different points in the execution-cycle.
 
 ```fsharp
-exception FailedOpenConnectionException of DbConnectionError
-exception FailedTransactionException of DbTransactionError
-exception FailedExecutionException of DbExecutionError
-exception FailedCastException of DataReaderCastError
+type DbError =
+    | DbConnectionError of DbConnectionError
+    | DbTransactionError of DbTransactionError
+    | DbExecutionError of DbExecutionError
+    | DataReaderCastError of DataReaderCastError
+    | DataReaderInvalidColumnError of DataReaderInvalidColumnError
 ```
 
-During command execution failures the `Error` case of `DbResult<'a>` is used, that encapsulates a `DbExecutionError` record. These are produced internally as a `FailedExecutionError` and transformed by the `Db` module.
+During command execution failures the `Error` case of `Result` contains one of `DbError` union cases with relevant data.
 
 ```fsharp
-type DbExecutionError = 
+/// Details of failure to connection to a database/server.
+type DbConnectionError =
+    { ConnectionString : string
+      Error : exn }
+
+/// Details the steps of database a transaction.
+type DbTransactionStep =  TxBegin | TxCommit | TxRollback
+
+/// Details of transaction failure.
+type DbTransactionError =
+    { Step : DbTransactionStep
+      Error : exn }
+
+/// Details of failure to execute database command.
+type DbExecutionError =
     { Statement : string
-      Error     : DbException }
+      Error : DbException }
 
-type DbResult<'a> = Result<'a, DbExecutionError>
+/// Details of failure to cast a IDataRecord field.
+type DataReaderCastError =
+    { FieldName : string
+      Error : InvalidCastException }
 
-exception FailedExecutionError of DbExecutionError
+/// Details of failure to access a IDataRecord column by name.
+type DataReaderInvalidColumnError =
+    { ColumnName : string
+      Error : IndexOutOfRangeException }
 ```
 
-> It's important to note that Donald will only raise these exceptions in _exceptional_ situations. 
+> It's important to note that Donald will only raise exceptions in _exceptional_ situations. 
 
 ## Performance
 
