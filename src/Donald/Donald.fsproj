@@ -48,4 +48,5 @@
   <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
     <PackageReference Include="FSharp.Core" Version="6.0.*" />
   </ItemGroup>
+
 </Project>
