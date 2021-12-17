@@ -13,21 +13,18 @@ This library is named after him.
 
 ## Key Features
 
-Donald is a well-tested library, with pleasant ergonomics that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) safer and *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO.NET implementations.
-
-The library includes multiple computation expressions responsible for [building `IDbCommand` instances](#command-builder), executed using the `Db` module and two [result-based expressions](#execute-statements-within-an-explicit-transaction) for helping with dependent commands (avoiding the dreaded "Pyramid of Doom").
-
-Two sets of type [extensions](#reading-values) for `IDataReader` are included to make manual object mapping a lot easier.
+Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) safer and *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO.NET implementations.
 
 > If you came looking for an ORM (object-relational mapper), this is not the library for you. And may the force be with you.
 
 ## Design Goals 
 
 - Support all ADO implementations.
-- Provide a [natural DSL](#quick-start) for interacting with databases.
-- Enable asynchronous workflows.
+- Provide a succinct API for interacting with databases.
+- Enable asynchronuos workflows.
 - Provide explicit error flow control.
 - Make object mapping easier.
+- Improve data access performance.
 
 ## Getting Started
 
@@ -53,16 +50,15 @@ module Author =
   let ofDataReader (rd : IDataReader) : Author =      
       { FullName = rd.ReadString "full_name" }
 
-let authors : DbResult<Author list> =    
+let authors : Result<Author list, DbError> =    
     let sql = "
-    SELECT  author_id
-          , full_name 
+    SELECT  full_name 
     FROM    author 
     WHERE   author_id = @author_id"
 
-    let param = [ "author_id", SqlType.Int 1]
+    let param = [ "author_id", SqlType.Int 1 ]
 
-    use conn = new SQLiteConnection("{your connection string}")
+    use conn = new SQLiteConnection "{your connection string}"
     
     conn
     |> Db.newCommand sql
@@ -91,96 +87,127 @@ module Author -
 
 ### Query for multiple strongly-typed results
 
+> Important: Donald is set to use `CommandBehavior.SequentialAccess` by default. See [performance](#performance) for more information.
+
 ```fsharp
+let sql = "SELECT author_id, full_name FROM author"
+
 // Fluent
 conn
-|> Db.newCommand "SELECT author_id, full_name FROM author"
-|> Db.query Author.ofDataReader // DbResult<Author list>
+|> Db.newCommand sql
+|> Db.query Author.ofDataReader // Result<Author list, DbError>
 
 // Expression
 dbCommand conn {
-    cmdText "SELECT  author_id
-                   , full_name 
-             FROM    author"
+    cmdText sql
 }
-|> Db.query Author.ofDataReader // DbResult<Author list>
+|> Db.query Author.ofDataReader // Result<Author list, DbError>
 
 // Async
 conn
-|> Db.newCommand "SELECT author_id, full_name FROM author"
-|> Db.Async.query Author.ofDataReader // Task<DbResult<Author list>>
+|> Db.newCommand sql
+|> Db.Async.query Author.ofDataReader // Task<Result<Author list, DbError>>
 ```
 
 ### Query for a single strongly-typed result
 
 ```fsharp
+let sql = "SELECT author_id, full_name FROM author"
 // Fluent
 conn
-|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.newCommand sql
 |> Db.setParams [ "author_id", SqlType.Int 1 ]
-|> Db.querySingle Author.ofDataReader // DbResult<Author option>
+|> Db.querySingle Author.ofDataReader // Result<Author option, DbError>
 
 // Expression
 dbCommand conn {
-    cmdText "SELECT  author_id
-                   , full_name 
-             FROM    author 
-             WHERE   author_id = @author_id"
+    cmdText sql
     cmdParam [ "author_id", SqlType.Int 1]
 } 
-|> Db.querySingle Author.ofDataReader // DbResult<Author option>
+|> Db.querySingle Author.ofDataReader // Result<Author option, DbError>
 
 // Async
 conn
-|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.newCommand sql
 |> Db.setParams [ "author_id", SqlType.Int 1 ]
-|> Db.Async.querySingle Author.ofDataReader // Task<DbResult<Author option>>
+|> Db.Async.querySingle Author.ofDataReader // Task<Result<Author option, DbError>>
 ```
 
 ### Execute a statement
 
 ```fsharp
+let sql = "INSERT INTO author (full_name)"
+
+let param = [ "full_name", SqlType.String "John Doe" ]
+
 // Fluent
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
-|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
-|> Db.exec // DbResult<unit>
+|> Db.newCommand sql
+|> Db.setParams param
+|> Db.exec // Result<unit, DbError>
 
 // Expression 
 dbCommand conn {
-    cmdText "INSERT INTO author (full_name)"
-    cmdParam [ "full_name", SqlType.String "John Doe" ]
+    cmdText sql
+    cmdParam param
 }
-|> Db.exec // DbResult<unit>
+|> Db.exec // Result<unit, DbError>
 
 // Async
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
-|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
-|> Db.Async.exec // Task<DbResult<unit>>
+|> Db.newCommand sql
+|> Db.setParams param
+|> Db.Async.exec // Task<Result<unit, DbError>>
 ```
 
 ### Execute a statement many times
 
 ```fsharp
+let sql = "INSERT INTO author (full_name)" 
+
+let param = 
+    [ "full_name", SqlType.String "John Doe"
+      "full_name", SqlType.String "Jane Doe" ]
+
 // Fluent
 conn
-|> Db.newCommand "INSERT INTO author (full_name)" 
-|> Db.execMany [ "full_name", SqlType.String "John Doe"
-                 "full_name", SqlType.String "Jane Doe" ]
+|> Db.newCommand sql
+|> Db.execMany param
 
 // Expression
 dbCommand conn {
-   cmdText "INSERT INTO author (full_name)" 
+   cmdText sql
 }
-|> Db.execMany [ "full_name", SqlType.String "John Doe"
-                 "full_name", SqlType.String "Jane Doe" ]
+|> Db.execMany param
 
 // Async
 conn
-|> Db.newCommand "INSERT INTO author (full_name)" 
-|> Db.Async.execMany [ "full_name", SqlType.String "John Doe"
-                       "full_name", SqlType.String "Jane Doe" ]                           
+|> Db.newCommand sql
+|> Db.Async.execMany param
+```
+
+```fsharp
+let sql = "INSERT INTO author (full_name)"
+
+let param = [ "full_name", SqlType.String "John Doe" ]
+// Fluent
+conn
+|> Db.newCommand sql
+|> Db.setParams param
+|> Db.exec // Result<unit, DbError>
+
+// Expression 
+dbCommand conn {
+    cmdText sql
+    cmdParam param
+}
+|> Db.exec // Result<unit, DbError>
+
+// Async
+conn
+|> Db.newCommand sql
+|> Db.setParams param
+|> Db.Async.exec // Task<Result<unit, DbError>>
 ```
 
 ### Execute statements within an explicit transaction
@@ -191,62 +218,48 @@ Donald exposes most of it's functionality through `dbCommand { ... }` and the `D
 - `TryCommit()` commits a transaction or raises `CouldNotCommitTransactionError` and rolls back
 - `TryRollback()` rolls back a transaction or raises `CouldNotRollbackTransactionError`
 
-The library also contains a computation expression `dbResult { ... }` for dealing with `DbResult<'a>` instances, which is especially useful when you are working with dependent commands, common during transactional work.
-
 ```fsharp
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
 use tran = conn.TryBeginTransaction()
 
-// Build our IDbCommand's
+let insertSql = "INSERT INTO author (full_name)"
+
 let param = [ "full_name", SqlType.String "John Doe" ]
 
 let insertCmd = dbCommand conn {
-    cmdText "INSERT INTO author (full_name)"
+    cmdText insertSql
     cmdParam param
     cmdTran  tran
 }
 
+let selectSql = "SELECT author_id, full_name FROM author WHERE full_name = @full_name"
+
 let selectCmd = dbCommand conn {
-    cmdText "SELECT  author_id
-                   , full_name 
-             FROM    author 
-             WHERE   full_name = @full_name"
+    cmdText selectSql
     cmdParam param
     cmdTran  tran
 } 
 
-// Execute IDbCommand's
+// Execute commands
 let result = dbResult {
   do! insertCmd |> Db.exec 
   return! selectCmd |> Db.querySingle Author.ofDataReader
 }
 
 // Attempt to commit, rollback on failure and throw CouldNotCommitTransactionError
-tran.TryCommit() // or, safely rollback tran.TryRollback()
-```
-
-This functionality also fully support task-based asynchronous workflows via `dbResultTask { ... }`:
-
-```fsharp
-// ... rest of code from above
-
-let result = dbResultTask {
-  do! insertCmd |> Db.Async.exec 
-  return! selectCmd |> Db.Async.querySingle Author.ofDataReader
-}
-
-// ... rest of code from above
+tran.TryCommit() 
 ```
 
 ## Command Builder
 
-At the core of Donald is a computation expression for building `IDbCommand` instances. It exposes five modification points:
+At the core of Donald is a computation expression for building `DbUnit` instances, which encapsulate `IDbCommand` allowing additional properties to be configured prior to execution. It exposes five modification points:
 
 1. `cmdText` - SQL statement you intend to execute (default: `String.empty`).
 2. `cmdParam` - Input parameters for your statement (default: `[]`). 
 3. `cmdType` - Type of command you want to execute (default: `CommandType.Text`) 
 4. `cmdTran` - Transaction to assign to command.
 5. `cmdTimeout` - The maximum time a command can run for (default: underlying DbCommand default, usually 30 seconds)
+6. `cmdBehavior` - The `CommandBehavior` setting for the `DbUnit` (default: `CommandBehavior.SequentialAccess`).
 
 ## Reading Values
 
@@ -259,45 +272,44 @@ To make obtaining values from reader more straight-forward, 2 sets of extension 
 Assuming we have an active `IDataReader` called `rd` and are currently reading a row, the following extension methods are available to simplify reading values:
 
 ```fsharp
-rd.ReadString "some_field"           // string -> string
-rd.ReadBoolean "some_field"          // string -> bool
-rd.ReadByte "some_field"             // string -> byte
-rd.ReadChar "some_field"             // string -> char
-rd.ReadDateTime "some_field"         // string -> DateTime
-rd.ReadDecimal "some_field"          // string -> Decimal
-rd.ReadDouble "some_field"           // string -> Double
-rd.ReadFloat "some_field"            // string -> float32
-rd.ReadGuid "some_field"             // string -> Guid
-rd.ReadInt16 "some_field"            // string -> int16
-rd.ReadInt32 "some_field"            // string -> int32
-rd.ReadInt64 "some_field"            // string -> int64
-rd.ReadBytes "some_field"            // string -> byte[]
+rd.ReadString "some_field"         // string -> string
+rd.ReadBoolean "some_field"        // string -> bool
+rd.ReadByte "some_field"           // string -> byte
+rd.ReadChar "some_field"           // string -> char
+rd.ReadDateTime "some_field"       // string -> DateTime
+rd.ReadDecimal "some_field"        // string -> Decimal
+rd.ReadDouble "some_field"         // string -> Double
+rd.ReadFloat "some_field"          // string -> float32
+rd.ReadGuid "some_field"           // string -> Guid
+rd.ReadInt16 "some_field"          // string -> int16
+rd.ReadInt32 "some_field"          // string -> int32
+rd.ReadInt64 "some_field"          // string -> int64
+rd.ReadBytes "some_field"          // string -> byte[]
 
-rd.ReadStringOption "some_field"         // string -> string option
-rd.ReadBooleanOption "some_field"        // string -> bool option
-rd.ReadByteOption "some_field"           // string -> byte option
-rd.ReadCharOption "some_field"           // string -> char option
-rd.ReadDateTimeOption "some_field"       // string -> DateTime option
-rd.ReadDecimalOption "some_field"        // string -> Decimal option
-rd.ReadDoubleOption "some_field"         // string -> Double option
-rd.ReadFloatOption "some_field"          // string -> float32 option
-rd.ReadGuidOption "some_field"           // string -> Guid option
-rd.ReadInt16Option "some_field"          // string -> int16 option
-rd.ReadInt32Option "some_field"          // string -> int32 option
-rd.ReadInt64Option "some_field"          // string -> int64 option
-rd.ReadBytesOption "some_field"          // string -> byte[] option
+rd.ReadStringOption "some_field"   // string -> string option
+rd.ReadBooleanOption "some_field"  // string -> bool option
+rd.ReadByteOption "some_field"     // string -> byte option
+rd.ReadCharOption "some_field"     // string -> char option
+rd.ReadDateTimeOption "some_field" // string -> DateTime option
+rd.ReadDecimalOption "some_field"  // string -> Decimal option
+rd.ReadDoubleOption "some_field"   // string -> Double option
+rd.ReadFloatOption "some_field"    // string -> float32 option
+rd.ReadGuidOption "some_field"     // string -> Guid option
+rd.ReadInt16Option "some_field"    // string -> int16 option
+rd.ReadInt32Option "some_field"    // string -> int32 option
+rd.ReadInt64Option "some_field"    // string -> int64 option
+rd.ReadBytesOption "some_field"    // string -> byte[] option
 ```
 
 ## Exceptions
 
-Donald exposes six custom exception types to represent failure at different points in the lifecycle:
+Donald exposes four custom exception types to represent failure at different points in the execution-cycle.
 
 ```fsharp
-exception ConnectionBusyError
-exception CouldNotOpenConnectionError of exn
-exception CouldNotBeginTransactionError of exn
-exception CouldNotCommitTransactionError of exn
-exception CouldNotRollbackTransactionError of exn
+exception FailedOpenConnectionException of DbConnectionError
+exception FailedTransactionException of DbTransactionError
+exception FailedExecutionException of DbExecutionError
+exception FailedCastException of DataReaderCastError
 ```
 
 During command execution failures the `Error` case of `DbResult<'a>` is used, that encapsulates a `DbExecutionError` record. These are produced internally as a `FailedExecutionError` and transformed by the `Db` module.
@@ -313,6 +325,30 @@ exception FailedExecutionError of DbExecutionError
 ```
 
 > It's important to note that Donald will only raise these exceptions in _exceptional_ situations. 
+
+## Performance
+
+By default, Donald will consume `IDataReader` using `CommandBehavior.SequentialAccess`. This allows the rows and columns to be read in chunks (i.e., streamed), but forward-only. As opposed to being completely read into memory all at once, and readable in any direction. The benefits of this are particular felt when reading large CLOB (string) and BLOB (binary) data. But is also a measureable performance gain for standard query results as well.
+
+The only nuance to sequential access is that **columns must be read in the same order found in the `SELECT` clause**. Aside from that, there is no noticeable difference from the perspective of a library consumer.
+
+Configuring `CommandBehavior` can be done two ways:
+
+```fsharp
+let sql = "SELECT author_id, full_name FROM author"
+// Fluent 
+conn
+|> Db.newCommand sql
+|> Db.setCommandBehavior CommandBehavior.Default
+|> Db.query Author.ofDataReader
+
+// Expression
+dbCommand conn {
+    cmdText sql
+    cmdBehavior CommandBehavior.Default
+}
+|> Db.query Author.ofDataReader
+```
 
 ## Find a bug?
 

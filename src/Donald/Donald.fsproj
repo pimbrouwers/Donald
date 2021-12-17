@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <AssemblyName>Donald</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>7.0.0</Version>
 
     <!-- General info -->
     <Description>Functional F# interface for ADO.NET.</Description>
@@ -11,16 +11,15 @@
     <NeutralLanguage>en-CA</NeutralLanguage>
 
     <!-- Build config -->
-    <DebugType>portable</DebugType>
+    <TargetFrameworks>netstandard2.1;netstandard2.0</TargetFrameworks>
+    <DebugType>embedded</DebugType>
     <OutputType>Library</OutputType>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <TargetFramework>netstandard2.0</TargetFramework>
 
     <!-- NuGet config -->
     <PackageId>Donald</PackageId>
-    <PackageVersion>6.2.4</PackageVersion>
     <PackageTags>fsharp;functional;database;sql;ado;adonet</PackageTags>        
     <PackageProjectUrl>https://github.com/pimbrouwers/Donald</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -31,24 +30,14 @@
     <!-- SourceLink settings -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="4.6.2" />    
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Include="Core.fs" />
-    <Compile Include="Connection.fs" />
-    <Compile Include="Transaction.fs" />
-    <Compile Include="Command.fs" />
-    <Compile Include="DataReader.fs" />
+    <Compile Include="Extensions.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Builder.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Ply" Version="0.3.1" />
   </ItemGroup>
 
 </Project>

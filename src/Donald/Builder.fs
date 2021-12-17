@@ -1,145 +1,45 @@
-﻿[<AutoOpen>]
-module Donald.DbCommandBuilder
+namespace Donald
 
 open System
 open System.Data
 
-// dbResult {...}
-// ------------
-
-/// Computation expression for DbResult<_>.
-type DbResultBuilder() =
-    member _.Return (value) : DbResult<'a> = Ok value
-
-    member _.ReturnFrom (result) : DbResult<'a> = result
-
-    member _.Delay(fn) : unit -> DbResult<'a> = fn
-
-    member _.Run(fn) : DbResult<'a> = fn ()
-
-    member _.Bind (result, binder) = DbResult.bind binder result
-
-    member x.Zero () = x.Return ()
-
-    member x.TryWith (result, exceptionHandler) = 
-        try x.ReturnFrom (result)        
-        with ex -> exceptionHandler ex
-
-    member x.TryFinally (result, fn) = 
-        try x.ReturnFrom (result)        
-        finally fn ()
-
-    member x.Using (disposable : #IDisposable, fn) = 
-        x.TryFinally(fn disposable, fun _ -> 
-            match disposable with 
-            | null -> () 
-            | disposable -> disposable.Dispose()) 
-
-    member x.While (guard,  fn) =
-        if not (guard()) 
-            then x.Zero () 
-        else 
-            do fn () |> ignore
-            x.While(guard, fn)
-
-    member x.For (items : seq<_>, fn) = 
-        x.Using(items.GetEnumerator(), fun enum ->
-            x.While(enum.MoveNext, 
-                x.Delay (fun () -> fn enum.Current)))
-
-    member x.Combine (result, fn) = 
-        x.Bind(result, fun () -> fn ())
-
-/// Computation expression for DbResult<_>.
-let dbResult = DbResultBuilder()
-
-// dbResultTask {...}
-// ------------
-
-type DbResultTaskBuilder() =
-    member _.Return (value) : DbResultTask<'a> = DbResultTask.retn value
-
-    member _.ReturnFrom (result) : DbResultTask<'a> = result
-
-    member _.Delay(fn) : unit -> DbResultTask<'a> = fn
-
-    member _.Run(fn) : DbResultTask<'a> = fn ()
-
-    member _.Bind (result, binder) = DbResultTask.bind binder result
-
-    member x.Zero () = x.Return ()
-
-    member x.TryWith (result, exceptionHandler) = 
-        try x.ReturnFrom (result)        
-        with ex -> exceptionHandler ex
-
-    member x.TryFinally (result, fn) = 
-        try x.ReturnFrom (result)        
-        finally fn ()
-
-    member x.Using (disposable : #IDisposable, fn) = 
-        x.TryFinally(fn disposable, fun _ -> 
-            match disposable with 
-            | null -> () 
-            | disposable -> disposable.Dispose()) 
-
-    member x.While (guard,  fn) =
-        if not (guard()) 
-            then x.Zero () 
-        else 
-            do fn () |> ignore
-            x.While(guard, fn)
-
-    member x.For (items : seq<_>, fn) = 
-        x.Using(items.GetEnumerator(), fun enum ->
-            x.While(enum.MoveNext, 
-                x.Delay (fun () -> fn enum.Current)))
-
-    member x.Combine (result, fn) = 
-        x.Bind(result, fun () -> fn ())
-
-
-/// Computation expression for DbResultTask<_>.
-let dbResultTask = DbResultTaskBuilder()
-
-// dbCommand {...}
-// ------------
-
 type CommandSpec<'a> = 
     {
-        Connection     : IDbConnection
-        Transaction    : IDbTransaction option
-        CommandType    : CommandType
-        CommandTimeout : int option
-        Statement      : string 
-        Param          : RawDbParams
+        Connection : IDbConnection
+        Transaction : IDbTransaction option
+        CommandType : CommandType
+        CommandTimeout : int
+        CommandBehavior : CommandBehavior
+        Statement : string 
+        Param : RawDbParams
     }
-    static member Create (conn : IDbConnection) = 
+    static member Default (conn : IDbConnection) = 
         {
-            Connection     = conn
-            Transaction    = None
-            CommandType    = CommandType.Text
-            CommandTimeout = None
-            Statement      = ""
-            Param          = []
+            Connection = conn
+            Transaction = None
+            CommandType = CommandType.Text
+            CommandTimeout = 30
+            CommandBehavior = CommandBehavior.SequentialAccess
+            Statement = ""
+            Param = []
         }
 
 /// Computation expression for generating IDbCommand instances.
-type DbCommandBuilder<'a>(conn : IDbConnection) =
-    member _.Yield(_) = CommandSpec<'a>.Create (conn)
+type DbCommandBuilder<'a> (conn : IDbConnection) =
+    member _.Yield(_) = CommandSpec<'a>.Default (conn)
 
     member _.Run(spec : CommandSpec<'a>) =         
         let cmd = 
             spec.Connection
             |> Db.newCommand spec.Statement
             |> Db.setCommandType spec.CommandType
+            |> Db.setCommandBehavior spec.CommandBehavior
             |> Db.setParams spec.Param
+            |> Db.setTimeout spec.CommandTimeout
             
-        match spec.Transaction, spec.CommandTimeout with 
-        | Some tran, Some timeout -> cmd |> Db.setTimeout timeout |> Db.setTransaction tran 
-        | Some tran, None         -> Db.setTransaction tran cmd
-        | None, Some timeout      -> Db.setTimeout timeout cmd
-        | None, None              -> cmd
+        match spec.Transaction with         
+        | Some tran -> Db.setTransaction tran cmd        
+        | None -> cmd
         
     [<CustomOperation("cmdParam")>]
     /// Add DbParams.
@@ -164,7 +64,14 @@ type DbCommandBuilder<'a>(conn : IDbConnection) =
     [<CustomOperation("cmdTimeout")>]
     /// Set command timeout.
     member _.CommandTimeout (spec : CommandSpec<'a>, timeout : TimeSpan) =
-        { spec with CommandTimeout = Some <| int timeout.TotalSeconds }
+        { spec with CommandTimeout = int timeout.TotalSeconds }
 
-/// Computation expression for generating IDbCommand instances.
-let dbCommand<'a> (conn : IDbConnection) = DbCommandBuilder<'a>(conn)
+    [<CustomOperation("cmdBehavior")>]
+    /// Set command timeout.
+    member _.CommandBehavior (spec : CommandSpec<'a>, commandBehavior : CommandBehavior) =
+        { spec with CommandBehavior = commandBehavior }
+
+[<AutoOpen>]
+module DbCommandBuilder =
+    /// Computation expression for generating IDbCommand instances.
+    let dbCommand<'a> (conn : IDbConnection) = DbCommandBuilder<'a>(conn)
