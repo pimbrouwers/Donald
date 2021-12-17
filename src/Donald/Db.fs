@@ -4,6 +4,9 @@ open System
 open System.Data
 open System.Data.Common
 open System.Threading.Tasks
+#if NETSTANDARD2_0 || NETSTANDARD2_1
+    open FSharp.Control.Tasks
+#endif
 
 [<RequireQualifiedAccess>]
 module Db =

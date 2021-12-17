@@ -11,7 +11,7 @@
     <NeutralLanguage>en-CA</NeutralLanguage>
 
     <!-- Build config -->
-    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0</TargetFrameworks>
     <DebugType>embedded</DebugType>
     <OutputType>Library</OutputType>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -40,8 +40,12 @@
     <Compile Include="Builder.fs" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="6.0.*" />
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'netstandard2.1'">
+    <PackageReference Include="FSharp.Core" Version="4.6.*" />
+    <PackageReference Include="Ply" Version="0.3.1" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <PackageReference Include="FSharp.Core" Version="6.0.*" />
+  </ItemGroup>
 </Project>
