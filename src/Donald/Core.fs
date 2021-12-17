@@ -21,7 +21,7 @@ type DbTransactionStep =  TxBegin | TxCommit | TxRollback
 /// Details of transaction failure.
 type DbTransactionError =
     { Step : DbTransactionStep
-      Error : exn}
+      Error : exn }
 
 /// Details of failure to execute database command.
 type DbExecutionError =
@@ -33,16 +33,18 @@ type DataReaderCastError =
     { FieldName : string
       Error : InvalidCastException }
 
+type DataReaderOutOfRangeError =
+    { FieldName : string
+      Error : IndexOutOfRangeException }
+
 type DbError =
     | DbConnectionError of DbConnectionError
     | DbTransactionError of DbTransactionError
     | DbExecutionError of DbExecutionError
     | DataReaderCastError of DataReaderCastError
+    | DataReaderOutOfRangeError of DataReaderOutOfRangeError
 
-exception FailedOpenConnectionException of DbConnectionError
-exception FailedTransactionException of DbTransactionError
-exception FailedExecutionException of DbExecutionError
-exception FailedCastException of DataReaderCastError
+exception DbFailureException of DbError
 
 /// Represents the supported data types for database IO.
 [<RequireQualifiedAccess>]

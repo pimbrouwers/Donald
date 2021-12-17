@@ -45,10 +45,7 @@ module Db =
             cmd.Dispose()
             Ok result
         with
-        | FailedOpenConnectionException e -> Error (DbConnectionError e)
-        | FailedTransactionException e -> Error (DbTransactionError e)
-        | FailedExecutionException e -> Error (DbExecutionError e)
-        | FailedCastException e -> Error (DataReaderCastError e)
+        | DbFailureException e -> Error e
 
     /// Execute parameterized query with no results.
     let exec (dbUnit : DbUnit) : Result<unit, DbError> =
@@ -63,10 +60,7 @@ module Db =
 
             Ok ()
         with
-        | FailedOpenConnectionException e -> Error (DbConnectionError e)
-        | FailedTransactionException e -> Error (DbTransactionError e)
-        | FailedExecutionException e -> Error (DbExecutionError e)
-        | FailedCastException e -> Error (DataReaderCastError e)
+        | DbFailureException e -> Error e
 
     /// Execute scalar query and box the result.
     let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Result<'a, DbError> =
@@ -95,16 +89,13 @@ module Db =
 
     module Async =
         let private tryDoAsync (fn : DbCommand -> Task<'a>) (cmd : IDbCommand) : Task<Result<'a, DbError>> =
-            task {
+            task {                
                 try
                     cmd.Connection.TryOpenConnection() |> ignore
                     let! result = fn (cmd :?> DbCommand)
                     return (Ok result)
                 with
-                | FailedOpenConnectionException e -> return Error (DbConnectionError e)
-                | FailedTransactionException e -> return Error (DbTransactionError e)
-                | FailedExecutionException e -> return Error (DbExecutionError e)
-                | FailedCastException e -> return Error (DataReaderCastError e)
+                | DbFailureException e -> return Error e
             }
 
         /// Asynchronously execute parameterized query with no results.
