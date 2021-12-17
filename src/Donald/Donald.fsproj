@@ -11,7 +11,7 @@
     <NeutralLanguage>en-CA</NeutralLanguage>
 
     <!-- Build config -->
-    <TargetFrameworks>netstandard2.0;netstandard2.1;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
     <DebugType>embedded</DebugType>
     <OutputType>Library</OutputType>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -38,6 +38,10 @@
     <Compile Include="Extensions.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Builder.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="6.0.*" />
   </ItemGroup>
 
 </Project>
