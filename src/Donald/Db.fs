@@ -4,7 +4,6 @@ open System
 open System.Data
 open System.Data.Common
 open System.Threading.Tasks
-open FSharp.Control.Tasks
 
 [<RequireQualifiedAccess>]
 module Db =
