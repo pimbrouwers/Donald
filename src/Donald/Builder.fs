@@ -2,6 +2,7 @@ namespace Donald
 
 open System
 open System.Data
+open System.Threading
 
 type CommandSpec<'a> = 
     {
@@ -12,6 +13,7 @@ type CommandSpec<'a> =
         CommandBehavior : CommandBehavior
         Statement : string 
         Param : RawDbParams
+        CancellationToken : CancellationToken
     }
     static member Default (conn : IDbConnection) = 
         {
@@ -22,6 +24,7 @@ type CommandSpec<'a> =
             CommandBehavior = CommandBehavior.SequentialAccess
             Statement = ""
             Param = []
+            CancellationToken = CancellationToken.None
         }
 
 /// Computation expression for generating IDbCommand instances.
@@ -36,6 +39,7 @@ type DbCommandBuilder<'a> (conn : IDbConnection) =
             |> Db.setCommandBehavior spec.CommandBehavior
             |> Db.setParams spec.Param
             |> Db.setTimeout spec.CommandTimeout
+            |> Db.setCancellationToken spec.CancellationToken
             
         match spec.Transaction with         
         | Some tran -> Db.setTransaction tran cmd        
@@ -67,9 +71,14 @@ type DbCommandBuilder<'a> (conn : IDbConnection) =
         { spec with CommandTimeout = int timeout.TotalSeconds }
 
     [<CustomOperation("cmdBehavior")>]
-    /// Set command timeout.
+    /// Set command behavior.
     member _.CommandBehavior (spec : CommandSpec<'a>, commandBehavior : CommandBehavior) =
         { spec with CommandBehavior = commandBehavior }
+
+    [<CustomOperation("cmdCancel")>]
+    /// Set CancellationToken.
+    member _.CancellationToken (spec : CommandSpec<'a>, cancellationToken : CancellationToken) =
+        { spec with CancellationToken = cancellationToken }
 
 [<AutoOpen>]
 module DbCommandBuilder =

@@ -3,12 +3,14 @@ namespace Donald
 open System
 open System.Data
 open System.Data.Common
+open System.Threading
 
 /// Represents a configurable database command.
 type DbUnit (cmd : IDbCommand) = 
     let commandBehavior = CommandBehavior.SequentialAccess
     member _.Command = cmd
     member val CommandBehavior = CommandBehavior.SequentialAccess with get, set
+    member val CancellationToken = CancellationToken.None with get,set
 
 /// Details of failure to connection to a database/server.
 type DbConnectionError =

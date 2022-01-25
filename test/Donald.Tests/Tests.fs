@@ -7,6 +7,7 @@ open System.IO
 open Xunit
 open Donald
 open FsUnit.Xunit
+open System.Threading
 
 let connectionString = "Data Source=:memory:;Version=3;New=true;"
 let conn = new SQLiteConnection(connectionString)
@@ -455,6 +456,141 @@ type ExecutionTests() =
         result
         |> (fun result -> result.Length |> should equal 2)
 
+
+
+    [<Fact>]
+    member _.``SELECT scalar Canceled request should be canceled`` () =
+        let sql = "SELECT 1"
+
+        use cts = new CancellationTokenSource()
+        cts.Cancel()
+        let action () = 
+            conn
+            |> Db.newCommand sql
+            |> Db.setCancellationToken cts.Token
+            |> Db.Async.scalar Convert.ToInt32
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+            |> ignore
+        action |> should throw typeof<Tasks.TaskCanceledException>
+
+    [<Fact>]
+    member _.``SELECT querySingle Canceled request should be canceled`` () =
+        let sql = "
+            SELECT author_id, full_name
+            FROM   author
+            WHERE  author_id = 1"
+
+        use cts = new CancellationTokenSource()
+        cts.Cancel()
+
+        let action () = 
+            conn
+            |> Db.newCommand sql
+            |> Db.setCommandBehavior CommandBehavior.Default
+            |> Db.setCancellationToken cts.Token
+            |> Db.Async.querySingle (fun rd -> 
+                { FullName = rd.ReadString "full_name"
+                  AuthorId = rd.ReadInt32 "author_id" })
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+            |> ignore
+
+        action |> should throw typeof<Tasks.TaskCanceledException>
+
+
+    [<Fact>]
+    member _.``SELECT query Canceled request should be canceled`` () =
+        let sql = "
+            SELECT author_id, full_name
+            FROM   author
+            WHERE  author_id = 1"
+
+        use cts = new CancellationTokenSource()
+        cts.Cancel()
+
+        let action () = 
+            conn
+            |> Db.newCommand sql
+            |> Db.setCommandBehavior CommandBehavior.Default
+            |> Db.setCancellationToken cts.Token
+            |> Db.Async.query (fun rd -> 
+                { FullName = rd.ReadString "full_name"
+                  AuthorId = rd.ReadInt32 "author_id" })
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+            |> ignore
+
+        action |> should throw typeof<Tasks.TaskCanceledException>
+
+    [<Fact>]
+    member _.``SELECT read Canceled request should be canceled`` () =
+        let sql = "
+        SELECT author_id, full_name
+        FROM   author
+        WHERE  author_id IN (1,2)"
+
+        use cts = new CancellationTokenSource()
+        cts.Cancel()
+
+        let action () =
+            use rd =
+                conn
+                |> Db.newCommand sql
+                |> Db.setCancellationToken cts.Token
+                |> Db.Async.read
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            ()
+
+        action |> should throw typeof<Tasks.TaskCanceledException>
+
+    [<Fact>]
+    member _.``INSERT exec Canceled request should be canceled`` () =
+        let fullName = "Jim Doe2"
+        let birthDate : DateTime option = None
+        use cts = new CancellationTokenSource()
+        cts.Cancel()
+
+        let sql = "
+            INSERT INTO author (full_name, birth_date)
+            VALUES (@full_name, @birth_date);"
+
+        let param =
+            [ "full_name", SqlType.String fullName
+              "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null ]
+       
+        let action () = 
+            conn
+            |> Db.newCommand sql
+            |> Db.setParams param
+            |> Db.setCancellationToken cts.Token
+            |> Db.Async.exec
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+            |> ignore
+
+        action |> should throw typeof<Tasks.TaskCanceledException>
+
+    [<Fact>]
+    member _.``INSERT execMany Canceled request should be canceled``  () =
+        let sql = "INSERT INTO author (full_name) VALUES (@full_name);"
+
+        use cts = new CancellationTokenSource()
+        cts.Cancel()
+
+        let action () = 
+            conn
+            |> Db.newCommand sql
+            |> Db.setCancellationToken cts.Token
+            |> Db.Async.execMany
+                [ [ "full_name", SqlType.String "Bugs Bunny2" ]
+                  [ "full_name", SqlType.String "Donald Duck2" ] ]
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+            |> ignore
+
+        action |> should throw typeof<Tasks.TaskCanceledException>
 [<Collection("Db")>]
 type BuilderTests () = 
     [<Fact>]
@@ -488,4 +624,10 @@ type BuilderTests () =
         let commandBehavior = CommandBehavior.Default
         let cmd = dbCommand conn { cmdBehavior commandBehavior }
         cmd.CommandBehavior |> should equal commandBehavior
+
+    [<Fact>]
+    member _.``cmdCancel configures cancellation token`` () = 
+        use cts = new CancellationTokenSource()
+        let cmd = dbCommand conn { cmdCancel cts.Token }
+        cmd.CancellationToken |> should equal cts.Token
         
