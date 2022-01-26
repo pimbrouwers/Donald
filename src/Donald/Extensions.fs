@@ -5,6 +5,11 @@ open System.Data
 open System.Data.Common
 open System.IO
 open System.Threading.Tasks
+open System.Threading
+
+#if NETSTANDARD2_0 || NETSTANDARD2_1
+    open FSharp.Control.Tasks
+#endif
 
 [<AutoOpen>]
 module Extensions =
@@ -22,6 +27,25 @@ module Extensions =
 
                 raise (DbFailureException error)
 
+        /// Safely attempt to open a new IDbTransaction or
+        /// return FailedOpenConnectionException.
+        member this.TryOpenConnectionAsync(?cancellationToken : CancellationToken)  = task {
+            try
+                let ct = defaultArg cancellationToken CancellationToken.None
+                if this.State = ConnectionState.Closed then
+                    match this with
+                    | :? DbConnection as c -> do! c.OpenAsync(ct)
+                    | _ ->
+                        ct.ThrowIfCancellationRequested()
+                        this.Open()
+            with ex ->
+                let error = DbConnectionError { 
+                    ConnectionString = this.ConnectionString
+                    Error = ex }
+
+                return raise (DbFailureException error)
+        }
+
         /// Safely attempt to create a new IDbTransaction or
         /// return CouldNotBeginTransactionException.
         member this.TryBeginTransaction()  =
@@ -36,6 +60,31 @@ module Extensions =
 
                 raise (DbFailureException error)
 
+
+#if !NETSTANDARD2_0 
+        /// Safely attempt to create a new IDbTransaction or
+        /// return CouldNotBeginTransactionException.
+        member this.TryBeginTransactionAsync(?cancellationToken : CancellationToken)  = task {
+            try
+                let ct = defaultArg cancellationToken CancellationToken.None
+                do! this.TryOpenConnectionAsync(ct)
+                match this with
+                | :? DbConnection as c -> 
+                    let! dbTransaction = c.BeginTransactionAsync(ct)
+                    return dbTransaction :> IDbTransaction
+                | _ -> 
+                    ct.ThrowIfCancellationRequested()
+                    return this.BeginTransaction()                
+            with
+            | ex ->
+                let error = DbTransactionError { 
+                    Step = TxBegin
+                    Error = ex }
+
+                return raise (DbFailureException error)
+        }
+#endif
+
     type IDbTransaction with
         /// Safely attempt to rollback an IDbTransaction.
         member this.TryRollback() =
@@ -49,6 +98,26 @@ module Extensions =
 
                 raise (DbFailureException error)
 
+
+#if !NETSTANDARD2_0 
+        /// Safely attempt to rollback an IDbTransaction.
+        member this.TryRollbackAsync(?cancellationToken : CancellationToken) = task {
+            try
+                if not(isNull this) && not(isNull this.Connection) then 
+                    let ct = defaultArg cancellationToken CancellationToken.None
+                    match this with
+                    | :? DbTransaction as t-> do! t.RollbackAsync(ct)
+                    | _ -> 
+                        ct.ThrowIfCancellationRequested()
+                        this.Rollback()
+            with ex  ->
+                let error = DbTransactionError {
+                    Step = TxRollback
+                    Error = ex }
+
+                return raise (DbFailureException error)
+        }
+#endif
         /// Safely attempt to commit an IDbTransaction.
         /// Will rollback in the case of Exception.
         member this.TryCommit() =
@@ -66,6 +135,34 @@ module Extensions =
                     Error = ex }
 
                 raise (DbFailureException error)
+
+
+#if !NETSTANDARD2_0 
+        /// Safely attempt to commit an IDbTransaction.
+        /// Will rollback in the case of Exception.
+        member this.TryCommitAsync(?cancellationToken : CancellationToken) = task {
+            let ct = defaultArg cancellationToken CancellationToken.None
+            try
+                if not(isNull this) && not(isNull this.Connection) then 
+                    
+                    match this with
+                    | :? DbTransaction as t -> do! t.CommitAsync(ct)
+                    | _ -> 
+                        ct.ThrowIfCancellationRequested()
+                        this.Commit()
+            with ex ->
+                /// Is supposed to throw System.InvalidOperationException
+                /// when commmited or rolled back already, but most
+                /// implementations do not. So in all cases try rolling back
+                do! this.TryRollbackAsync(ct)
+
+                let error = DbTransactionError {
+                    Step = TxCommit
+                    Error = ex }
+
+                raise (DbFailureException error)
+        }
+#endif
 
     type IDbCommand with
         member internal this.SetDbParams(dbParams : DbParams) =
@@ -160,7 +257,7 @@ module Extensions =
         member internal this.Exec () =
             this.TryDo (fun this -> this.ExecuteNonQuery() |> ignore)
 
-        member internal this.ExecReader (cmdBehavior : CommandBehavior) =
+        member internal this.ExecReader (cmdBehavior : CommandBehavior, ?ct : CancellationToken) =
             this.TryDo (fun this -> this.ExecuteReader(cmdBehavior))
 
     type DbCommand with
@@ -178,11 +275,11 @@ module Extensions =
         member internal this.SetDbParams(param : DbParams) =
             (this :> IDbCommand).SetDbParams(param) :?> DbCommand
 
-        member internal this.ExecAsync() =
-            this.TryDoAsync (fun this -> this.ExecuteNonQueryAsync())
+        member internal this.ExecAsync(?cancellationToken: CancellationToken) =
+            this.TryDoAsync (fun this -> this.ExecuteNonQueryAsync(cancellationToken = defaultArg cancellationToken CancellationToken.None))
 
-        member internal this.ExecReaderAsync(cmdBehavior : CommandBehavior) =
-            this.TryDoAsync (fun this -> this.ExecuteReaderAsync(cmdBehavior))
+        member internal this.ExecReaderAsync(cmdBehavior : CommandBehavior, ?cancellationToken: CancellationToken) =
+            this.TryDoAsync (fun this -> this.ExecuteReaderAsync(cmdBehavior, cancellationToken = defaultArg cancellationToken CancellationToken.None ))
 
     /// IDataReader extensions
     type IDataReader with
