@@ -16,31 +16,31 @@ module Extensions =
     type IDbConnection with
         /// Safely attempt to open a new IDbTransaction or
         /// return FailedOpenConnectionException.
-        member this.TryOpenConnection()  =
+        member x.TryOpenConnection()  =
             try
-                if this.State = ConnectionState.Closed then
-                    this.Open()
+                if x.State = ConnectionState.Closed then
+                    x.Open()
             with ex ->
-                let error = DbConnectionError { 
-                    ConnectionString = this.ConnectionString
+                let error = DbConnectionError {
+                    ConnectionString = x.ConnectionString
                     Error = ex }
 
                 raise (DbFailureException error)
 
         /// Safely attempt to open a new IDbTransaction or
         /// return FailedOpenConnectionException.
-        member this.TryOpenConnectionAsync(?cancellationToken : CancellationToken)  = task {
+        member x.TryOpenConnectionAsync(?cancellationToken : CancellationToken)  = task {
             try
                 let ct = defaultArg cancellationToken CancellationToken.None
-                if this.State = ConnectionState.Closed then
-                    match this with
+                if x.State = ConnectionState.Closed then
+                    match x with
                     | :? DbConnection as c -> do! c.OpenAsync(ct)
                     | _ ->
                         ct.ThrowIfCancellationRequested()
-                        this.Open()
+                        x.Open()
             with ex ->
-                let error = DbConnectionError { 
-                    ConnectionString = this.ConnectionString
+                let error = DbConnectionError {
+                    ConnectionString = x.ConnectionString
                     Error = ex }
 
                 return raise (DbFailureException error)
@@ -48,36 +48,36 @@ module Extensions =
 
         /// Safely attempt to create a new IDbTransaction or
         /// return CouldNotBeginTransactionException.
-        member this.TryBeginTransaction()  =
+        member x.TryBeginTransaction()  =
             try
-                this.TryOpenConnection()
-                this.BeginTransaction()
+                x.TryOpenConnection()
+                x.BeginTransaction()
             with
             | ex ->
-                let error = DbTransactionError { 
+                let error = DbTransactionError {
                     Step = TxBegin
                     Error = ex }
 
                 raise (DbFailureException error)
 
 
-#if !NETSTANDARD2_0 
+#if !NETSTANDARD2_0
         /// Safely attempt to create a new IDbTransaction or
         /// return CouldNotBeginTransactionException.
-        member this.TryBeginTransactionAsync(?cancellationToken : CancellationToken)  = task {
+        member x.TryBeginTransactionAsync(?cancellationToken : CancellationToken)  = task {
             try
                 let ct = defaultArg cancellationToken CancellationToken.None
-                do! this.TryOpenConnectionAsync(ct)
-                match this with
-                | :? DbConnection as c -> 
+                do! x.TryOpenConnectionAsync(ct)
+                match x with
+                | :? DbConnection as c ->
                     let! dbTransaction = c.BeginTransactionAsync(ct)
                     return dbTransaction :> IDbTransaction
-                | _ -> 
+                | _ ->
                     ct.ThrowIfCancellationRequested()
-                    return this.BeginTransaction()                
+                    return x.BeginTransaction()
             with
             | ex ->
-                let error = DbTransactionError { 
+                let error = DbTransactionError {
                     Step = TxBegin
                     Error = ex }
 
@@ -87,10 +87,9 @@ module Extensions =
 
     type IDbTransaction with
         /// Safely attempt to rollback an IDbTransaction.
-        member this.TryRollback() =
+        member x.TryRollback() =
             try
-                if not(isNull this)
-                   && not(isNull this.Connection) then this.Rollback()
+                if not(isNull x) && not(isNull x.Connection) then x.Rollback()
             with ex  ->
                 let error = DbTransactionError {
                     Step = TxRollback
@@ -99,17 +98,17 @@ module Extensions =
                 raise (DbFailureException error)
 
 
-#if !NETSTANDARD2_0 
+#if !NETSTANDARD2_0
         /// Safely attempt to rollback an IDbTransaction.
-        member this.TryRollbackAsync(?cancellationToken : CancellationToken) = task {
+        member x.TryRollbackAsync(?cancellationToken : CancellationToken) = task {
             try
-                if not(isNull this) && not(isNull this.Connection) then 
+                if not(isNull x) && not(isNull x.Connection) then
                     let ct = defaultArg cancellationToken CancellationToken.None
-                    match this with
+                    match x with
                     | :? DbTransaction as t-> do! t.RollbackAsync(ct)
-                    | _ -> 
+                    | _ ->
                         ct.ThrowIfCancellationRequested()
-                        this.Rollback()
+                        x.Rollback()
             with ex  ->
                 let error = DbTransactionError {
                     Step = TxRollback
@@ -120,15 +119,14 @@ module Extensions =
 #endif
         /// Safely attempt to commit an IDbTransaction.
         /// Will rollback in the case of Exception.
-        member this.TryCommit() =
+        member x.TryCommit() =
             try
-                if not(isNull this)
-                   && not(isNull this.Connection) then this.Commit()
+                if not(isNull x) && not(isNull x.Connection) then x.Commit()
             with ex ->
                 /// Is supposed to throw System.InvalidOperationException
                 /// when commmited or rolled back already, but most
                 /// implementations do not. So in all cases try rolling back
-                this.TryRollback()
+                x.TryRollback()
 
                 let error = DbTransactionError {
                     Step = TxCommit
@@ -137,24 +135,24 @@ module Extensions =
                 raise (DbFailureException error)
 
 
-#if !NETSTANDARD2_0 
+#if !NETSTANDARD2_0
         /// Safely attempt to commit an IDbTransaction.
         /// Will rollback in the case of Exception.
-        member this.TryCommitAsync(?cancellationToken : CancellationToken) = task {
+        member x.TryCommitAsync(?cancellationToken : CancellationToken) = task {
             let ct = defaultArg cancellationToken CancellationToken.None
             try
-                if not(isNull this) && not(isNull this.Connection) then 
-                    
-                    match this with
+                if not(isNull x) && not(isNull x.Connection) then
+
+                    match x with
                     | :? DbTransaction as t -> do! t.CommitAsync(ct)
-                    | _ -> 
+                    | _ ->
                         ct.ThrowIfCancellationRequested()
-                        this.Commit()
+                        x.Commit()
             with ex ->
                 /// Is supposed to throw System.InvalidOperationException
                 /// when commmited or rolled back already, but most
                 /// implementations do not. So in all cases try rolling back
-                do! this.TryRollbackAsync(ct)
+                do! x.TryRollbackAsync(ct)
 
                 let error = DbTransactionError {
                     Step = TxCommit
@@ -165,15 +163,15 @@ module Extensions =
 #endif
 
     type IDbCommand with
-        member internal this.SetDbParams(dbParams : DbParams) =
+        member internal x.SetDbParams(dbParams : DbParams) =
             let setParamValue (p : IDbDataParameter) (v : obj) =
                 if isNull v then p.Value <- DBNull.Value
                 else p.Value <- v
 
-            this.Parameters.Clear() // clear to ensure a clean working set
+            x.Parameters.Clear() // clear to ensure a clean working set
 
             for param in dbParams do
-                let p = this.CreateParameter()
+                let p = x.CreateParameter()
                 p.ParameterName <- param.Name
 
                 match param.Value with
@@ -238,56 +236,99 @@ module Extensions =
                     p.DbType <- DbType.Binary
                     setParamValue p v
 
-                this.Parameters.Add(p)
+                x.Parameters.Add(p)
                 |> ignore
 
-            this
+            x
 
-        member private this.TryDo (fn : IDbCommand -> 'a) : 'a =
+        member internal x.Exec () =
             try
-                fn this
+                x.ExecuteNonQuery() |> ignore
             with
-            | :? DbException as ex -> 
+            | :? DbException as ex ->
                 let error = DbExecutionError {
-                    Statement = this.CommandText
+                    Statement = x.CommandText
                     Error = ex }
 
                 raise (DbFailureException error)
 
-        member internal this.Exec () =
-            this.TryDo (fun this -> this.ExecuteNonQuery() |> ignore)
+        member internal x.ExecReader (cmdBehavior : CommandBehavior) =
+            try
+                x.ExecuteReader(cmdBehavior)
+            with
+            | :? DbException as ex ->
+                let error = DbExecutionError {
+                    Statement = x.CommandText
+                    Error = ex }
 
-        member internal this.ExecReader (cmdBehavior : CommandBehavior, ?ct : CancellationToken) =
-            this.TryDo (fun this -> this.ExecuteReader(cmdBehavior))
+                raise (DbFailureException error)
+
+        member internal x.ExecScalar () =
+            try
+                x.ExecuteScalar()
+            with
+            | :? DbException as ex ->
+                let error = DbExecutionError {
+                    Statement = x.CommandText
+                    Error = ex }
+
+                raise (DbFailureException error)
 
     type DbCommand with
-        member private this.TryDoAsync (fn : DbCommand -> Task<'a>) : Task<'a> =
+        member private x.TryDoAsync (fn : DbCommand -> Task<'a>) : Task<'a> =
             try
-                fn this
+                fn x
             with
-            | :? DbException as ex -> 
+            | :? DbException as ex ->
                 let error = DbExecutionError {
-                    Statement = this.CommandText
+                    Statement = x.CommandText
                     Error = ex }
-                
+
                 raise (DbFailureException error)
 
-        member internal this.SetDbParams(param : DbParams) =
-            (this :> IDbCommand).SetDbParams(param) :?> DbCommand
+        member internal x.SetDbParams(param : DbParams) =
+            (x :> IDbCommand).SetDbParams(param) :?> DbCommand
 
-        member internal this.ExecAsync(?cancellationToken: CancellationToken) =
-            this.TryDoAsync (fun this -> this.ExecuteNonQueryAsync(cancellationToken = defaultArg cancellationToken CancellationToken.None))
+        member internal x.ExecAsync(?ct: CancellationToken) =
+            try
+                x.ExecuteNonQueryAsync(cancellationToken = defaultArg ct CancellationToken.None)
+            with
+            | :? DbException as ex ->
+                let error = DbExecutionError {
+                    Statement = x.CommandText
+                    Error = ex }
 
-        member internal this.ExecReaderAsync(cmdBehavior : CommandBehavior, ?cancellationToken: CancellationToken) =
-            this.TryDoAsync (fun this -> this.ExecuteReaderAsync(cmdBehavior, cancellationToken = defaultArg cancellationToken CancellationToken.None ))
+                raise (DbFailureException error)
+
+        member internal x.ExecReaderAsync(cmdBehavior : CommandBehavior, ?ct: CancellationToken) =
+            try
+                x.ExecuteReaderAsync(cmdBehavior, cancellationToken = defaultArg ct CancellationToken.None )
+            with
+            | :? DbException as ex ->
+                let error = DbExecutionError {
+                    Statement = x.CommandText
+                    Error = ex }
+
+                raise (DbFailureException error)
+
+        member internal x.ExecScalarAsync(?ct: CancellationToken) =
+            try
+                x.ExecuteScalarAsync(cancellationToken = defaultArg ct CancellationToken.None )
+            with
+            | :? DbException as ex ->
+                let error = DbExecutionError {
+                    Statement = x.CommandText
+                    Error = ex }
+
+                raise (DbFailureException error)
 
     /// IDataReader extensions
     type IDataReader with
-        member private this.GetOrdinalOption (name : string) =
-            try 
-                let i = this.GetOrdinal(name)
-            
-                match this.IsDBNull(i) with
+        member private x.GetOrdinalOption (name : string) =
+            try
+                let i = x.GetOrdinal(name)
+
+                match x.IsDBNull(i) with
                 | true  -> None
                 | false -> Some(i)
             with
@@ -298,124 +339,124 @@ module Extensions =
 
                 raise (DbFailureException error)
 
-        member private this.GetOption (map : int -> 'a when 'a : struct) (name : string) =
+        member private x.GetOption (map : int -> 'a when 'a : struct) (name : string) =
             let fn v =
                 try
                     map v
                 with
                 | :? InvalidCastException as ex ->
-                    let error = DataReaderCastError { 
+                    let error = DataReaderCastError {
                         FieldName = name
                         Error = ex }
 
                     raise (DbFailureException error)
 
-            this.GetOrdinalOption(name)
+            x.GetOrdinalOption(name)
             |> Option.map fn
 
         /// Safely retrieve String Option
-        member this.ReadStringOption (name : string) =
-            name |> this.GetOrdinalOption |> Option.map (fun i -> this.GetString(i))
+        member x.ReadStringOption (name : string) =
+            name |> x.GetOrdinalOption |> Option.map (fun i -> x.GetString(i))
 
         /// Safely retrieve Boolean Option
-        member this.ReadBooleanOption (name : string) =
-            name |> this.GetOption (fun i -> this.GetBoolean(i))
+        member x.ReadBooleanOption (name : string) =
+            name |> x.GetOption (fun i -> x.GetBoolean(i))
 
         /// Safely retrieve Byte Option
-        member this.ReadByteOption (name : string) =
-            name |> this.GetOption (fun i -> this.GetByte(i))
+        member x.ReadByteOption (name : string) =
+            name |> x.GetOption (fun i -> x.GetByte(i))
 
         /// Safely retrieve Char Option
-        member this.ReadCharOption (name : string) =
-            name |> this.GetOption (fun i -> this.GetString(i).[0])
+        member x.ReadCharOption (name : string) =
+            name |> x.GetOption (fun i -> x.GetString(i).[0])
 
         /// Safely retrieve DateTime Option
-        member this.ReadDateTimeOption (name : string) =
-            name |> this.GetOption (fun i -> this.GetDateTime(i))
+        member x.ReadDateTimeOption (name : string) =
+            name |> x.GetOption (fun i -> x.GetDateTime(i))
 
         /// Safely retrieve Decimal Option
-        member this.ReadDecimalOption (name : string) =
-            name |> this.GetOption (fun i -> this.GetDecimal(i))
+        member x.ReadDecimalOption (name : string) =
+            name |> x.GetOption (fun i -> x.GetDecimal(i))
 
         /// Safely retrieve Double Option
-        member this.ReadDoubleOption (name : string) =
-            name |> this.GetOption (fun i -> this.GetDouble(i))
+        member x.ReadDoubleOption (name : string) =
+            name |> x.GetOption (fun i -> x.GetDouble(i))
 
         /// Safely retrieve Float Option
-        member this.ReadFloatOption (name : string) =
-            this.ReadDoubleOption name
+        member x.ReadFloatOption (name : string) =
+            x.ReadDoubleOption name
 
         /// Safely retrieve Guid Option
-        member this.ReadGuidOption (name : string) =
-            name |> this.GetOption (fun i -> this.GetGuid(i))
+        member x.ReadGuidOption (name : string) =
+            name |> x.GetOption (fun i -> x.GetGuid(i))
 
         /// Safely retrieve Int16 Option
-        member this.ReadInt16Option (name : string) =
-            name |> this.GetOption (fun i -> this.GetInt16(i))
+        member x.ReadInt16Option (name : string) =
+            name |> x.GetOption (fun i -> x.GetInt16(i))
 
         /// Safely retrieve Int32 Option
-        member this.ReadInt32Option (name : string) =
-            name |> this.GetOption (fun i -> this.GetInt32(i))
+        member x.ReadInt32Option (name : string) =
+            name |> x.GetOption (fun i -> x.GetInt32(i))
 
         /// Safely retrieve Int64 Option
-        member this.ReadInt64Option (name : string) =
-            name |> this.GetOption (fun i -> this.GetInt64(i))
+        member x.ReadInt64Option (name : string) =
+            name |> x.GetOption (fun i -> x.GetInt64(i))
 
         // ------------
         // Defaults
         // ------------
 
         /// Safely retrieve String or return provided default
-        member this.ReadString (name : string) =
-            this.ReadStringOption name |> Option.defaultValue String.Empty
+        member x.ReadString (name : string) =
+            x.ReadStringOption name |> Option.defaultValue String.Empty
 
         /// Safely retrieve Boolean or return provided default
-        member this.ReadBoolean (name : string) =
-            this.ReadBooleanOption name |> Option.defaultValue false
+        member x.ReadBoolean (name : string) =
+            x.ReadBooleanOption name |> Option.defaultValue false
 
         /// Safely retrieve Byte or return provided default
-        member this.ReadByte (name : string) =
-            this.ReadByteOption name |> Option.defaultValue Byte.MinValue
+        member x.ReadByte (name : string) =
+            x.ReadByteOption name |> Option.defaultValue Byte.MinValue
 
         /// Safely retrieve Char or return provided default
-        member this.ReadChar (name : string) =
-            this.ReadCharOption name |> Option.defaultValue Char.MinValue
+        member x.ReadChar (name : string) =
+            x.ReadCharOption name |> Option.defaultValue Char.MinValue
 
         /// Safely retrieve DateTime or return provided default
-        member this.ReadDateTime (name : string) =
-            this.ReadDateTimeOption name |> Option.defaultValue DateTime.MinValue
+        member x.ReadDateTime (name : string) =
+            x.ReadDateTimeOption name |> Option.defaultValue DateTime.MinValue
 
         /// Safely retrieve Decimal or return provided default
-        member this.ReadDecimal (name : string) =
-            this.ReadDecimalOption name |> Option.defaultValue 0.0M
+        member x.ReadDecimal (name : string) =
+            x.ReadDecimalOption name |> Option.defaultValue 0.0M
 
         /// Safely retrieve Double or return provided default
-        member this.ReadDouble (name : string) =
-            this.ReadDoubleOption name |> Option.defaultValue 0.0
+        member x.ReadDouble (name : string) =
+            x.ReadDoubleOption name |> Option.defaultValue 0.0
 
         /// Safely retrieve Float or return provided default
-        member this.ReadFloat (name : string) =
-            this.ReadFloatOption name |> Option.defaultValue 0.0
+        member x.ReadFloat (name : string) =
+            x.ReadFloatOption name |> Option.defaultValue 0.0
 
         /// Safely retrieve Guid or return provided default
-        member this.ReadGuid (name : string) =
-            this.ReadGuidOption name |> Option.defaultValue Guid.Empty
+        member x.ReadGuid (name : string) =
+            x.ReadGuidOption name |> Option.defaultValue Guid.Empty
 
         /// Safely retrieve Int16 or return provided default
-        member this.ReadInt16 (name : string) =
-            this.ReadInt16Option name |> Option.defaultValue 0s
+        member x.ReadInt16 (name : string) =
+            x.ReadInt16Option name |> Option.defaultValue 0s
 
         /// Safely retrieve Int32 or return provided default
-        member this.ReadInt32 (name : string) =
-            this.ReadInt32Option name |> Option.defaultValue 0
+        member x.ReadInt32 (name : string) =
+            x.ReadInt32Option name |> Option.defaultValue 0
 
         /// Safely retrieve Int64 or return provided default
-        member this.ReadInt64 (name : string) =
-            this.ReadInt64Option name |> Option.defaultValue 0L
+        member x.ReadInt64 (name : string) =
+            x.ReadInt64Option name |> Option.defaultValue 0L
 
         /// Safely retrieve byte[]
-        member this.ReadBytesOption (name : string) : byte[] option =
-            match name |> this.GetOrdinalOption with
+        member x.ReadBytesOption (name : string) : byte[] option =
+            match name |> x.GetOrdinalOption with
             | None   -> None
             | Some i ->
                 use ms = new MemoryStream()
@@ -428,11 +469,11 @@ module Extensions =
                         ms.Write(buffer, 0, int read)
                         chunkValue (position + read) str rd
 
-                chunkValue 0L ms this |> ignore
+                chunkValue 0L ms x |> ignore
                 Some (ms.ToArray())
 
         /// Safely retrieve byte[] or return provided default
-        member this.ReadBytes (name : string) : byte[] =
-            match this.ReadBytesOption name with
+        member x.ReadBytes (name : string) : byte[] =
+            match x.ReadBytesOption name with
             | None       -> Array.zeroCreate 0
             | Some bytes -> bytes

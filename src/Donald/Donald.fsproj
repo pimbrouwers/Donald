@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <AssemblyName>Donald</AssemblyName>
-    <Version>7.1.0</Version>
+    <Version>8.0.0</Version>
 
     <!-- General info -->
     <Description>Functional F# interface for ADO.NET.</Description>
@@ -20,9 +20,10 @@
 
     <!-- NuGet config -->
     <PackageId>Donald</PackageId>
-    <PackageTags>fsharp;functional;database;sql;ado;adonet</PackageTags>        
+    <PackageTags>fsharp;functional;database;sql;ado;adonet</PackageTags>
     <PackageProjectUrl>https://github.com/pimbrouwers/Donald</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/pimbrouwers/Donald</RepositoryUrl>
@@ -41,12 +42,21 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'netstandard2.1'">
-    <PackageReference Include="FSharp.Core" Version="4.6.*" />
+    <PackageReference Update="FSharp.Core" Version="4.6.*" />
     <PackageReference Include="Ply" Version="0.3.1" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
-    <PackageReference Include="FSharp.Core" Version="6.0.*" />
+    <PackageReference Update="FSharp.Core" Version="6.0.*" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="*.fsproj; **\*.fs; **\*.fsi" PackagePath="fable\" />
   </ItemGroup>
 
 </Project>

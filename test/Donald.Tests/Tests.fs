@@ -206,7 +206,7 @@ type ExecutionTests() =
         conn
         |> Db.newCommand sql
         |> Db.setCommandBehavior CommandBehavior.Default
-        |> Db.querySingle (fun rd -> 
+        |> Db.querySingle (fun rd ->
             { FullName = rd.ReadString "full_name"
               AuthorId = rd.ReadInt32 "author_id" })
         |> shouldNotBeError (fun result ->
@@ -223,7 +223,7 @@ type ExecutionTests() =
         conn
         |> Db.newCommand sql
         |> Db.setCommandBehavior CommandBehavior.Default
-        |> Db.Async.querySingle (fun rd -> 
+        |> Db.Async.querySingle (fun rd ->
             { FullName = rd.ReadString "full_name"
               AuthorId = rd.ReadInt32 "author_id" })
         |> Async.AwaitTask
@@ -427,15 +427,14 @@ type ExecutionTests() =
         FROM   author
         WHERE  author_id IN (1,2)"
 
-        use rd =
-            conn
-            |> Db.newCommand sql
-            |> Db.read
+        conn
+        |> Db.newCommand sql
+        |> Db.read
+        |> shouldNotBeError (fun rd ->
+            let result = [ while rd.Read() do Author.FromReader rd ]
 
-        let result = [ while rd.Read() do Author.FromReader rd ]
-
-        result
-        |> (fun result -> result.Length |> should equal 2)
+            result
+            |> (fun result -> result.Length |> should equal 2))
 
     [<Fact>]
     member _.``Returning Task<IDataReader> via async read`` () =
@@ -444,17 +443,16 @@ type ExecutionTests() =
         FROM   author
         WHERE  author_id IN (1,2)"
 
-        use rd =
-            conn
-            |> Db.newCommand sql
-            |> Db.Async.read
-            |> Async.AwaitTask
-            |> Async.RunSynchronously
+        conn
+        |> Db.newCommand sql
+        |> Db.Async.read
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+        |> shouldNotBeError (fun rd ->
+            let result = [ while rd.Read() do Author.FromReader rd ]
 
-        let result = [ while rd.Read() do Author.FromReader rd ]
-
-        result
-        |> (fun result -> result.Length |> should equal 2)
+            result
+            |> (fun result -> result.Length |> should equal 2))
 
 
 
@@ -464,7 +462,7 @@ type ExecutionTests() =
 
         use cts = new CancellationTokenSource()
         cts.Cancel()
-        let action () = 
+        let action () =
             conn
             |> Db.newCommand sql
             |> Db.setCancellationToken cts.Token
@@ -484,12 +482,12 @@ type ExecutionTests() =
         use cts = new CancellationTokenSource()
         cts.Cancel()
 
-        let action () = 
+        let action () =
             conn
             |> Db.newCommand sql
             |> Db.setCommandBehavior CommandBehavior.Default
             |> Db.setCancellationToken cts.Token
-            |> Db.Async.querySingle (fun rd -> 
+            |> Db.Async.querySingle (fun rd ->
                 { FullName = rd.ReadString "full_name"
                   AuthorId = rd.ReadInt32 "author_id" })
             |> Async.AwaitTask
@@ -509,12 +507,12 @@ type ExecutionTests() =
         use cts = new CancellationTokenSource()
         cts.Cancel()
 
-        let action () = 
+        let action () =
             conn
             |> Db.newCommand sql
             |> Db.setCommandBehavior CommandBehavior.Default
             |> Db.setCancellationToken cts.Token
-            |> Db.Async.query (fun rd -> 
+            |> Db.Async.query (fun rd ->
                 { FullName = rd.ReadString "full_name"
                   AuthorId = rd.ReadInt32 "author_id" })
             |> Async.AwaitTask
@@ -534,13 +532,13 @@ type ExecutionTests() =
         cts.Cancel()
 
         let action () =
-            use rd =
-                conn
-                |> Db.newCommand sql
-                |> Db.setCancellationToken cts.Token
-                |> Db.Async.read
-                |> Async.AwaitTask
-                |> Async.RunSynchronously
+            conn
+            |> Db.newCommand sql
+            |> Db.setCancellationToken cts.Token
+            |> Db.Async.read
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+            |> shouldNotBeError (fun _ -> ())
             ()
 
         action |> should throw typeof<Tasks.TaskCanceledException>
@@ -559,8 +557,8 @@ type ExecutionTests() =
         let param =
             [ "full_name", SqlType.String fullName
               "birth_date", match birthDate with Some b -> SqlType.DateTime b | None -> SqlType.Null ]
-       
-        let action () = 
+
+        let action () =
             conn
             |> Db.newCommand sql
             |> Db.setParams param
@@ -579,7 +577,7 @@ type ExecutionTests() =
         use cts = new CancellationTokenSource()
         cts.Cancel()
 
-        let action () = 
+        let action () =
             conn
             |> Db.newCommand sql
             |> Db.setCancellationToken cts.Token
@@ -591,10 +589,11 @@ type ExecutionTests() =
             |> ignore
 
         action |> should throw typeof<Tasks.TaskCanceledException>
+
 [<Collection("Db")>]
-type BuilderTests () = 
+type BuilderTests () =
     [<Fact>]
-    member _.``cmdParam configures parameters`` () = 
+    member _.``cmdParam configures parameters`` () =
         let param = [ "p1", SqlType.Null; "p2", SqlType.Int32 1 ]
         let cmd = dbCommand conn { cmdParam param }
         cmd.Command.Parameters.Count |> should equal 2
@@ -602,7 +601,7 @@ type BuilderTests () =
         (cmd.Command.Parameters.["p2"] :?> System.Data.Common.DbParameter).Value |> should equal 1
 
     [<Fact>]
-    member _.``cmdText configures command text`` () = 
+    member _.``cmdText configures command text`` () =
         let sql = "SELECT 1"
         let cmd = dbCommand conn { cmdText sql }
         cmd.Command.CommandText |> should equal sql
@@ -610,7 +609,7 @@ type BuilderTests () =
     [<Fact>]
     member _.``cmdType configures command type`` () =
         let commandType = CommandType.Text
-        let cmd = dbCommand conn { cmdType commandType } 
+        let cmd = dbCommand conn { cmdType commandType }
         cmd.Command.CommandType |> should equal commandType
 
     [<Fact>]
@@ -620,14 +619,13 @@ type BuilderTests () =
         cmd.Command.CommandTimeout |> should equal (int commandTimeout.TotalSeconds)
 
     [<Fact>]
-    member _.``cmdBehavior configures command behavior`` () = 
+    member _.``cmdBehavior configures command behavior`` () =
         let commandBehavior = CommandBehavior.Default
         let cmd = dbCommand conn { cmdBehavior commandBehavior }
         cmd.CommandBehavior |> should equal commandBehavior
 
     [<Fact>]
-    member _.``cmdCancel configures cancellation token`` () = 
+    member _.``cmdCancel configures cancellation token`` () =
         use cts = new CancellationTokenSource()
         let cmd = dbCommand conn { cmdCancel cts.Token }
         cmd.CancellationToken |> should equal cts.Token
-        

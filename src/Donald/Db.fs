@@ -17,7 +17,7 @@ module Db =
         cmd.CommandText <- commandText
         DbUnit(cmd)
 
-    /// Configure the CancellationToken for the provided DbUnit       
+    /// Configure the CancellationToken for the provided DbUnit
     let setCancellationToken (cancellationToken : CancellationToken) (dbunit : DbUnit) =
         dbunit.CancellationToken <- cancellationToken
         dbunit
@@ -49,7 +49,7 @@ module Db =
 
     let private tryDo (fn : IDbCommand -> 'a) (cmd : IDbCommand) : Result<'a, DbError> =
         try
-            cmd.Connection.TryOpenConnection() |> ignore
+            cmd.Connection.TryOpenConnection()
             let result = fn cmd
             cmd.Dispose()
             Ok result
@@ -63,6 +63,7 @@ module Db =
     /// Execute parameterized query many times with no results.
     let execMany (param : RawDbParams list) (dbUnit : DbUnit) : Result<unit, DbError> =
         try
+            dbUnit.Command.Connection.TryOpenConnection()
             for p in param do
                 let dbParams = DbParams.create p
                 dbUnit.Command.SetDbParams(dbParams).Exec() |> ignore
@@ -74,7 +75,7 @@ module Db =
     /// Execute scalar query and box the result.
     let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Result<'a, DbError> =
         tryDo (fun cmd ->
-            let value = cmd.ExecuteScalar()
+            let value = cmd.ExecScalar()
             convert value)
             dbUnit.Command
 
@@ -93,14 +94,19 @@ module Db =
             dbUnit.Command
 
     /// Execute paramterized query and return IDataReader
-    let read (dbUnit : DbUnit) : IDataReader =
-        dbUnit.Command.ExecReader(dbUnit.CommandBehavior)
+    let read (dbUnit : DbUnit) : Result<IDataReader, DbError> =
+        try
+            dbUnit.Command.Connection.TryOpenConnection()
+            let result = dbUnit.Command.ExecReader(dbUnit.CommandBehavior)
+            Ok result
+        with
+        | DbFailureException e -> Error e
 
     module Async =
         let private tryDoAsync (cancellationToken : CancellationToken) (fn : DbCommand -> Task<'a>) (cmd : IDbCommand) : Task<Result<'a, DbError>> =
-            task {                
+            task {
                 try
-                    do! cmd.Connection.TryOpenConnectionAsync(cancellationToken) 
+                    do! cmd.Connection.TryOpenConnectionAsync(cancellationToken)
                     let! result = fn (cmd :?> DbCommand)
                     return (Ok result)
                 with
@@ -130,7 +136,7 @@ module Db =
         /// Execute scalar query and box the result.
         let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Task<Result<'a, DbError>> =
             let inner = fun (cmd : DbCommand) -> task {
-                let! value = cmd.ExecuteScalarAsync(dbUnit.CancellationToken)
+                let! value = cmd.ExecScalarAsync(dbUnit.CancellationToken)
                 return convert value
             }
             tryDoAsync dbUnit.CancellationToken inner dbUnit.Command
@@ -154,11 +160,13 @@ module Db =
             tryDoAsync dbUnit.CancellationToken inner dbUnit.Command
 
         /// Asynchronously execute paramterized query and return IDataReader
-        let read (dbUnit : DbUnit) : Task<IDataReader> =
-            let cmd' = dbUnit.Command :?> DbCommand
-
+        let read (dbUnit : DbUnit) : Task<Result<IDataReader, DbError>> =
             task {
-                let! rd = cmd'.ExecReaderAsync(dbUnit.CommandBehavior, dbUnit.CancellationToken)
-                let result = rd :> IDataReader
-                return result
+                try
+                    let cmd' = dbUnit.Command :?> DbCommand
+                    let! rd = cmd'.ExecReaderAsync(dbUnit.CommandBehavior, dbUnit.CancellationToken)
+                    let result = rd :> IDataReader
+                    return (Ok result)
+                with
+                | DbFailureException e -> return Error e
             }
