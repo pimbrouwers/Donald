@@ -112,7 +112,7 @@ conn
 ### Query for a single strongly-typed result
 
 ```fsharp
-let sql = "SELECT author_id, full_name FROM author"
+let sql = "SELECT author_id, full_name FROM author WHERE author_id = @author_id"
 // Fluent
 conn
 |> Db.newCommand sql
@@ -131,6 +131,64 @@ conn
 |> Db.newCommand sql
 |> Db.setParams [ "author_id", SqlType.Int 1 ]
 |> Db.Async.querySingle Author.ofDataReader // Task<Result<Author option, DbError>>
+```
+
+### Query for a One-to-Many JOIN'd result
+
+```fsharp
+type Book = 
+    { Id : int
+      Name : string
+      Genre : string }
+
+type AuthorWithBooks =
+    { Id : int 
+      FullName : string
+      Books : Book list }
+
+let authorWithBooksofDataReader (rd: IDataReader) : AuthorWithBooks option =
+    let bookOfDataReader (rd: IDataReader) : Book =
+        { Id = rd.ReadInt32 "book_id"
+          Name = rd.ReadString "name"
+          Genre = rd.ReadString "genre" }
+    
+    let mutable authorId = option<int>.None
+    let mutable fullName = ""
+    let mutable count = 0
+    let books = new ResizeArray<Book>()
+
+    while rd.Read() do
+        bookOfDataReader rd |> books.Add
+        count <- count + 1
+
+        if count = 1 then
+            authorId <- rd.ReadInt32 "author_id"
+            fullName <- rd.ReadString "full_name"
+    
+    match authorId with
+    | Some id -> 
+        { Id = id
+          FullName = fullName
+          Books = Seq.toList books }
+    | None -> None
+
+
+let sql = "
+    SELECT A.author_id, A.full_name, B.book_id, B.name, B.genre 
+    FROM author A
+    INNER JOIN book B
+        ON A.author_id = B.author_id
+    WHERE A.author_id = @author_id
+"
+
+conn
+|> Db.newCommand sql
+|> Db.setParams [ "author_id", SqlType.Int 1 ]
+|> Db.read 
+|> match res with
+   | Ok rd -> authorWithBooksofDataReader rd
+   | Error err -> Error err
+// Result<AuthorWithBooks option, DbError>
 ```
 
 ### Execute a statement
