@@ -275,52 +275,44 @@ module Extensions =
                 raise (DbFailureException error)
 
     type DbCommand with
-        member private x.TryDoAsync (fn : DbCommand -> Task<'a>) : Task<'a> =
-            try
-                fn x
-            with
-            | :? DbException as ex ->
-                let error = DbExecutionError {
-                    Statement = x.CommandText
-                    Error = ex }
-
-                raise (DbFailureException error)
-
         member internal x.SetDbParams(param : DbParams) =
             (x :> IDbCommand).SetDbParams(param) :?> DbCommand
 
-        member internal x.ExecAsync(?ct: CancellationToken) =
+        member internal x.ExecAsync(?ct: CancellationToken) = task {
             try
-                x.ExecuteNonQueryAsync(cancellationToken = defaultArg ct CancellationToken.None)
+                return! x.ExecuteNonQueryAsync(cancellationToken = defaultArg ct CancellationToken.None)
             with
             | :? DbException as ex ->
                 let error = DbExecutionError {
                     Statement = x.CommandText
                     Error = ex }
 
-                raise (DbFailureException error)
+                return raise (DbFailureException error)
+        }
 
-        member internal x.ExecReaderAsync(cmdBehavior : CommandBehavior, ?ct: CancellationToken) =
+        member internal x.ExecReaderAsync(cmdBehavior : CommandBehavior, ?ct: CancellationToken) = task {
             try
-                x.ExecuteReaderAsync(cmdBehavior, cancellationToken = defaultArg ct CancellationToken.None )
+                return! x.ExecuteReaderAsync(cmdBehavior, cancellationToken = defaultArg ct CancellationToken.None )
             with
             | :? DbException as ex ->
                 let error = DbExecutionError {
                     Statement = x.CommandText
                     Error = ex }
 
-                raise (DbFailureException error)
+                return raise (DbFailureException error)
+        }
 
-        member internal x.ExecScalarAsync(?ct: CancellationToken) =
+        member internal x.ExecScalarAsync(?ct: CancellationToken) = task {
             try
-                x.ExecuteScalarAsync(cancellationToken = defaultArg ct CancellationToken.None )
+                return! x.ExecuteScalarAsync(cancellationToken = defaultArg ct CancellationToken.None )
             with
             | :? DbException as ex ->
                 let error = DbExecutionError {
                     Statement = x.CommandText
                     Error = ex }
 
-                raise (DbFailureException error)
+                return raise (DbFailureException error)
+        }
 
     /// IDataReader extensions
     type IDataReader with
