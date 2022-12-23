@@ -124,13 +124,13 @@ conn
 ```fsharp
 let sql = "INSERT INTO author (full_name)"
 
+// Strongly typed input parameters
 let param = [ "full_name", SqlType.String "John Doe" ]
 
 conn
 |> Db.newCommand sql
 |> Db.setParams param
 |> Db.exec // Result<unit, DbError>
-ec // Result<unit, DbError>
 
 // Async
 conn
