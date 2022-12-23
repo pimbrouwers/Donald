@@ -4,12 +4,7 @@ open System
 open System.Data
 open System.Data.Common
 open System.IO
-open System.Threading.Tasks
 open System.Threading
-
-#if NETSTANDARD2_0 || NETSTANDARD2_1
-    open FSharp.Control.Tasks
-#endif
 
 [<AutoOpen>]
 module Extensions =
@@ -60,8 +55,6 @@ module Extensions =
 
                 raise (DbFailureException error)
 
-
-#if !NETSTANDARD2_0
         /// Safely attempt to create a new IDbTransaction or
         /// return CouldNotBeginTransactionException.
         member x.TryBeginTransactionAsync(?cancellationToken : CancellationToken)  = task {
@@ -83,7 +76,6 @@ module Extensions =
 
                 return raise (DbFailureException error)
         }
-#endif
 
     type IDbTransaction with
         /// Safely attempt to rollback an IDbTransaction.
@@ -97,8 +89,6 @@ module Extensions =
 
                 raise (DbFailureException error)
 
-
-#if !NETSTANDARD2_0
         /// Safely attempt to rollback an IDbTransaction.
         member x.TryRollbackAsync(?cancellationToken : CancellationToken) = task {
             try
@@ -116,7 +106,7 @@ module Extensions =
 
                 return raise (DbFailureException error)
         }
-#endif
+
         /// Safely attempt to commit an IDbTransaction.
         /// Will rollback in the case of Exception.
         member x.TryCommit() =
@@ -134,8 +124,6 @@ module Extensions =
 
                 raise (DbFailureException error)
 
-
-#if !NETSTANDARD2_0
         /// Safely attempt to commit an IDbTransaction.
         /// Will rollback in the case of Exception.
         member x.TryCommitAsync(?cancellationToken : CancellationToken) = task {
@@ -160,7 +148,6 @@ module Extensions =
 
                 raise (DbFailureException error)
         }
-#endif
 
     type IDbCommand with
         member internal x.SetDbParams(dbParams : DbParams) =

@@ -23,15 +23,12 @@ let shouldNotBeOk (result : Result<'a, DbError>) =
     | _ -> "DbResult should not be Ok" |> should equal false
 
 type Author =
-    {
-        AuthorId : int
-        FullName : string
-    }
+    { AuthorId : int
+      FullName : string }
+
     static member FromReader (rd : IDataReader) =
-        {
-            AuthorId = rd.ReadInt32 "author_id"
-            FullName = rd.ReadString "full_name"
-        }
+        { AuthorId = rd.ReadInt32 "author_id"
+          FullName = rd.ReadString "full_name" }
 
 type DbFixture () =
     do
@@ -76,6 +73,8 @@ type ExecutionTests() =
             , @p_int64 AS p_int64
             , @p_date_time AS p_date_time"
 
+        let guidParam = Guid.NewGuid ()
+        let dateTimeParam = DateTime.Now
         let param =
             [
                 "p_null", SqlType.Null
@@ -88,38 +87,62 @@ type ExecutionTests() =
                 "p_decimal", SqlType.Decimal 0.0M
                 "p_double", SqlType.Double 0.0
                 "p_float", SqlType.Float 0.0
-                "p_guid", SqlType.Guid (Guid.NewGuid())
-                "p_int16", SqlType.Int16 0s
-                "p_int32", SqlType.Int32 0
-                "p_int64", SqlType.Int64 0L
-                "p_date_time", SqlType.DateTime DateTime.Now
+                "p_guid", SqlType.Guid guidParam
+                "p_int16", SqlType.Int16 16s
+                "p_int32", SqlType.Int32 32
+                "p_int64", SqlType.Int64 64L
+                "p_date_time", SqlType.DateTime dateTimeParam
             ]
 
-        let map (rd : IDataReader) =
+        conn
+        |> Db.newCommand sql
+        |> Db.setParams param
+        |> Db.querySingle (fun rd ->
             {|
-                p_null = rd.ReadStringOption "p_null"
-                p_string = rd.ReadStringOption "p_string"
-                p_ansi_string = rd.ReadStringOption "p_ansi_string"
-                p_boolean = rd.ReadBooleanOption "p_boolean"
-                p_byte = rd.ReadByteOption "p_byte"
-                p_char = rd.ReadCharOption "p_char"
-                p_ansi_char = rd.ReadCharOption "p_ansi_char"
-                p_decimal = rd.ReadDecimalOption "p_decimal"
-                p_double = rd.ReadDoubleOption "p_double"
-                p_float = rd.ReadFloatOption "p_float"
-                p_guid = rd.ReadGuidOption "p_guid"
-                p_int16 = rd.ReadInt16Option "p_int16"
-                p_int32 = rd.ReadInt32Option "p_int32"
-                p_int64 = rd.ReadInt64Option "p_int64"
-                p_date_time = rd.ReadDateTimeOption "p_date_time"
-            |}
+                p_null = rd.ReadString "p_null"
+                p_string = rd.ReadString "p_string"
+                p_ansi_string = rd.ReadString "p_ansi_string"
+                p_boolean = rd.ReadBoolean "p_boolean"
+                p_byte = rd.ReadByte "p_byte"
+                p_char = rd.ReadChar "p_char"
+                p_ansi_char = rd.ReadChar "p_ansi_char"
+                p_decimal = rd.ReadDecimal "p_decimal"
+                p_double = rd.ReadDouble "p_double"
+                p_float = rd.ReadFloat "p_float"
+                p_guid = rd.ReadGuid "p_guid"
+                p_int16 = rd.ReadInt16 "p_int16"
+                p_int32 = rd.ReadInt32 "p_int32"
+                p_int64 = rd.ReadInt64 "p_int64"
+                p_date_time = rd.ReadDateTime "p_date_time"
+            |})
+        |> shouldNotBeError (fun result ->
+            result.IsSome |> should equal true
+            result.Value.p_null |> should equal ""
+            result.Value.p_string |> should equal "p_string"
+            result.Value.p_ansi_string |> should equal "p_ansi_string"
+            result.Value.p_boolean |> should equal false
+            result.Value.p_byte |> should equal Byte.MinValue
+            result.Value.p_char |> should equal 'a'
+            result.Value.p_ansi_char |> should equal Char.MinValue
+            result.Value.p_decimal |> should equal 0.0M
+            result.Value.p_double |> should equal 0.0
+            result.Value.p_float |> should equal 0.0
+            result.Value.p_guid |> should equal guidParam
+            result.Value.p_int16 |> should equal 16s
+            result.Value.p_int32 |> should equal 32
+            result.Value.p_int64 |> should equal 64L
+            result.Value.p_date_time |> should equal dateTimeParam)
 
-        dbCommand conn {
-           cmdText sql
-           cmdParam param
-        }
-        |> Db.querySingle map
-        |> shouldNotBeError (fun result -> result.IsSome |> should equal true)
+    [<Fact>]
+    member _.``DbUnit dispose`` () =
+        use dbUnit = Db.newCommand "SELECT @p AS p" conn
+
+        dbUnit
+        |> Db.setParams [ "p", SqlType.Int32 1 ]
+        |> Db.querySingle (fun rd -> rd.ReadInt32 "p")
+        |> shouldNotBeError (fun result ->
+            result.IsSome |> should equal true
+            result.Value |> should equal 1)
 
     [<Fact>]
     member _.``SELECT records`` () =
@@ -131,7 +154,10 @@ type ExecutionTests() =
         conn
         |> Db.newCommand sql
         |> Db.query Author.FromReader
-        |> shouldNotBeError (fun result -> result.Length |> should equal 2)
+        |> shouldNotBeError (fun result ->
+            result.Length |> should equal 2
+            result[0].FullName |> should equal "Pim Brouwers"
+            result[1].FullName |> should equal "John Doe")
 
     [<Fact>]
     member _.``SELECT records async`` () =
@@ -145,7 +171,11 @@ type ExecutionTests() =
         |> Db.Async.query Author.FromReader
         |> Async.AwaitTask
         |> Async.RunSynchronously
-        |> shouldNotBeError (fun result -> result.Length |> should equal 2)
+        |> shouldNotBeError (fun result ->
+            result.Length |> should equal 2
+            result[0].FullName |> should equal "Pim Brouwers"
+            result[1].FullName |> should equal "John Doe")
+
 
     [<Fact>]
     member _.``SELECT records should fail and create DbError`` () =
@@ -314,7 +344,7 @@ type ExecutionTests() =
         |> Db.newCommand sql
         |> Db.query Author.FromReader
         |> shouldNotBeError (fun result ->
-            result |> List.length |> should equal 2)
+            result.Length |> should equal 2)
 
     [<Fact>]
     member _.``INSERT TRAN MANY authors then count to verify async`` () =
@@ -348,7 +378,7 @@ type ExecutionTests() =
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> shouldNotBeError (fun result ->
-            result |> List.length |> should equal 2)
+            result.Length |> should equal 2)
 
     [<Fact>]
     member _.``INSERT MANY should fail and create DbError`` () =
@@ -391,37 +421,35 @@ type ExecutionTests() =
         let fullName = "Janet Doe"
         let param = [ "full_name", SqlType.String fullName ]
         use tran = conn.TryBeginTransaction()
-        let timeout = TimeSpan.FromSeconds(10.)
         let type' = CommandType.Text
 
         let sql = "INSERT INTO author (full_name) VALUES (@full_name);"
 
-        dbCommand conn {
-            cmdText  sql
-            cmdParam param
-            cmdTran  tran
-            cmdTimeout timeout
-            cmdType type'
-        }
+        conn
+        |> Db.newCommand sql
+        |> Db.setParams param
+        |> Db.setTransaction tran
+        |> Db.setTimeout 10
+        |> Db.setCommandType type'
         |> Db.exec
         |> ignore
 
         tran.TryCommit()
 
         let sql = "SELECT author_id, full_name
-                    FROM   author
-                    WHERE  full_name = @full_name;"
+                   FROM   author
+                   WHERE  full_name = @full_name;"
 
-        dbCommand conn {
-            cmdText  sql
-            cmdParam param
-        }
+        conn
+        |> Db.newCommand sql
+        |> Db.setParams param
         |> Db.querySingle Author.FromReader
         |> shouldNotBeError (fun result ->
-            result.IsSome |> should equal true)
+            result.IsSome |> should equal true
+            result.Value.FullName |> should equal "Janet Doe")
 
     [<Fact>]
-    member _.``Returning IDataReader via read`` () =
+    member _.``IDataReader via read`` () =
         let sql = "
         SELECT author_id, full_name
         FROM   author
@@ -429,12 +457,12 @@ type ExecutionTests() =
 
         conn
         |> Db.newCommand sql
-        |> Db.read
-        |> shouldNotBeError (fun rd ->
-            let result = [ while rd.Read() do Author.FromReader rd ]
-
-            result
-            |> (fun result -> result.Length |> should equal 2))
+        |> Db.read (fun rd ->
+            [ while rd.Read() do Author.FromReader rd ])
+        |> shouldNotBeError (fun result ->
+            result.Length |> should equal 2
+            result[0].FullName |> should equal "Pim Brouwers"
+            result[1].FullName |> should equal "John Doe")
 
     [<Fact>]
     member _.``Returning Task<IDataReader> via async read`` () =
@@ -445,16 +473,14 @@ type ExecutionTests() =
 
         conn
         |> Db.newCommand sql
-        |> Db.Async.read
+        |> Db.Async.read (fun rd ->
+            [ while rd.Read() do Author.FromReader rd ])
         |> Async.AwaitTask
         |> Async.RunSynchronously
-        |> shouldNotBeError (fun rd ->
-            let result = [ while rd.Read() do Author.FromReader rd ]
-
-            result
-            |> (fun result -> result.Length |> should equal 2))
-
-
+        |> shouldNotBeError (fun result ->
+            result.Length |> should equal 2
+            result[0].FullName |> should equal "Pim Brouwers"
+            result[1].FullName |> should equal "John Doe")
 
     [<Fact>]
     member _.``SELECT scalar Canceled request should be canceled`` () =
@@ -535,7 +561,7 @@ type ExecutionTests() =
             conn
             |> Db.newCommand sql
             |> Db.setCancellationToken cts.Token
-            |> Db.Async.read
+            |> Db.Async.read (fun _ -> ())
             |> Async.AwaitTask
             |> Async.RunSynchronously
             |> shouldNotBeError (fun _ -> ())
@@ -589,43 +615,3 @@ type ExecutionTests() =
             |> ignore
 
         action |> should throw typeof<Tasks.TaskCanceledException>
-
-[<Collection("Db")>]
-type BuilderTests () =
-    [<Fact>]
-    member _.``cmdParam configures parameters`` () =
-        let param = [ "p1", SqlType.Null; "p2", SqlType.Int32 1 ]
-        let cmd = dbCommand conn { cmdParam param }
-        cmd.Command.Parameters.Count |> should equal 2
-        (cmd.Command.Parameters.["p1"] :?> System.Data.Common.DbParameter).Value |> should equal DBNull.Value
-        (cmd.Command.Parameters.["p2"] :?> System.Data.Common.DbParameter).Value |> should equal 1
-
-    [<Fact>]
-    member _.``cmdText configures command text`` () =
-        let sql = "SELECT 1"
-        let cmd = dbCommand conn { cmdText sql }
-        cmd.Command.CommandText |> should equal sql
-
-    [<Fact>]
-    member _.``cmdType configures command type`` () =
-        let commandType = CommandType.Text
-        let cmd = dbCommand conn { cmdType commandType }
-        cmd.Command.CommandType |> should equal commandType
-
-    [<Fact>]
-    member _.``cmdTimeout configures command timeout`` () =
-        let commandTimeout = TimeSpan.FromSeconds 10.
-        let cmd = dbCommand conn { cmdTimeout commandTimeout }
-        cmd.Command.CommandTimeout |> should equal (int commandTimeout.TotalSeconds)
-
-    [<Fact>]
-    member _.``cmdBehavior configures command behavior`` () =
-        let commandBehavior = CommandBehavior.Default
-        let cmd = dbCommand conn { cmdBehavior commandBehavior }
-        cmd.CommandBehavior |> should equal commandBehavior
-
-    [<Fact>]
-    member _.``cmdCancel configures cancellation token`` () =
-        use cts = new CancellationTokenSource()
-        let cmd = dbCommand conn { cmdCancel cts.Token }
-        cmd.CancellationToken |> should equal cts.Token
