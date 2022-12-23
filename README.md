@@ -3,7 +3,7 @@
 [![NuGet Version](https://img.shields.io/nuget/v/Donald.svg)](https://www.nuget.org/packages/Donald)
 [![build](https://github.com/pimbrouwers/Donald/actions/workflows/build.yml/badge.svg)](https://github.com/pimbrouwers/Donald/actions/workflows/build.yml)
 
-Meet [Donald](https://en.wikipedia.org/wiki/Donald_D._Chamberlin).
+Meet [Donald](https://en.wikipedia.org/wiki/Donald_D._Chamberlin) (Chamberlin).
 
 If you're a programmer and have used a database, he's impacted your life in a big way.
 
@@ -19,12 +19,12 @@ Donald is a well-tested library that aims to make working with [ADO.NET](https:/
 
 ## Design Goals
 
-- Support all ADO implementations.
-- Provide a succinct API for interacting with databases.
-- Enable asynchronuos workflows.
-- Provide explicit error flow control.
-- Make object mapping easier.
-- Improve data access performance.
+- Support all ADO implementations
+- Provide a succinct, type-safe API for interacting with databases
+- Enable asynchronuos workflows
+- Provide explicit error flow control
+- Make object mapping easier
+- Improve data access performance
 
 ## Getting Started
 
