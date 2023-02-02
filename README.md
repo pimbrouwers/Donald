@@ -50,7 +50,7 @@ module Author =
   let ofDataReader (rd : IDataReader) : Author =
       { FullName = rd.ReadString "full_name" }
 
-let authors : Result<Author list, DbError> =
+let authors : Author list =
     let sql = "
     SELECT  full_name
     FROM    author
@@ -94,12 +94,12 @@ let sql = "SELECT author_id, full_name FROM author"
 
 conn
 |> Db.newCommand sql
-|> Db.query Author.ofDataReader // Result<Author list, DbError>
+|> Db.query Author.ofDataReader // Author list
 
 // Async
 conn
 |> Db.newCommand sql
-|> Db.Async.query Author.ofDataReader // Task<Result<Author list, DbError>>
+|> Db.Async.query Author.ofDataReader // Task<Author list>
 ```
 
 ### Query for a single strongly-typed result
@@ -110,13 +110,13 @@ let sql = "SELECT author_id, full_name FROM author"
 conn
 |> Db.newCommand sql
 |> Db.setParams [ "author_id", SqlType.Int 1 ]
-|> Db.querySingle Author.ofDataReader // Result<Author option, DbError>
+|> Db.querySingle Author.ofDataReader // Author option
 
 // Async
 conn
 |> Db.newCommand sql
 |> Db.setParams [ "author_id", SqlType.Int 1 ]
-|> Db.Async.querySingle Author.ofDataReader // Task<Result<Author option, DbError>>
+|> Db.Async.querySingle Author.ofDataReader // Task<Author option>
 ```
 
 ### Execute a statement
@@ -130,13 +130,13 @@ let param = [ "full_name", SqlType.String "John Doe" ]
 conn
 |> Db.newCommand sql
 |> Db.setParams param
-|> Db.exec // Result<unit, DbError>
+|> Db.exec // unit
 
 // Async
 conn
 |> Db.newCommand sql
 |> Db.setParams param
-|> Db.Async.exec // Task<Result<unit, DbError>>
+|> Db.Async.exec // Task<unit>
 ```
 
 ### Execute a statement many times
@@ -166,13 +166,13 @@ let param = [ "full_name", SqlType.String "John Doe" ]
 conn
 |> Db.newCommand sql
 |> Db.setParams param
-|> Db.exec // Result<unit, DbError>
+|> Db.exec // unit
 
 // Async
 conn
 |> Db.newCommand sql
 |> Db.setParams param
-|> Db.Async.exec // Task<Result<unit, DbError>>
+|> Db.Async.exec // Task<unit>
 ```
 
 ### Execute statements within an explicit transaction
@@ -254,52 +254,25 @@ rd.ReadBytesOption "some_field"    // string -> byte[] option
 
 ## Exceptions
 
-Donald exposes `DbError` type to represent failure at different points in the execution-cycle, all of which are encapsulated within a general `DbFailureException`.
-
-```fsharp
-type DbError =
-    | DbConnectionError of DbConnectionError
-    | DbTransactionError of DbTransactionError
-    | DbExecutionError of DbExecutionError
-    | DataReaderCastError of DataReaderCastError
-    | DataReaderOutOfRangeError of DataReaderOutOfRangeError
-
-exception DbFailureException of DbError
-```
-
-During command execution failures the `Error` case of `Result` contains one of `DbError` union cases with relevant data.
+Donald exposes several custom exceptions which interleave the exceptions thrown by ADO.NET with contextually relevant metadata.
 
 ```fsharp
 /// Details of failure to connection to a database/server.
-type DbConnectionError =
-    { ConnectionString : string
-      Error : exn }
+type DbConnectionException =
+    inherit Exception
+    val ConnectionString : string option
 
-/// Details the steps of database a transaction.
-type DbTransactionStep =  TxBegin | TxCommit | TxRollback
+/// Details of failure to execute database command or transaction.
+type DbExecutionException =
+    inherit Exception
+    val Statement : string option
+    val Step : DbTransactionStep option
 
-/// Details of transaction failure.
-type DbTransactionError =
-    { Step : DbTransactionStep
-      Error : exn }
-
-/// Details of failure to execute database command.
-type DbExecutionError =
-    { Statement : string
-      Error : DbException }
-
-/// Details of failure to cast a IDataRecord field.
-type DataReaderCastError =
-    { FieldName : string
-      Error : InvalidCastException }
-
-/// Details of failure to access a IDataRecord column by name.
-type DataReaderOutOfRangeError =
-    { FieldName : string
-      Error : IndexOutOfRangeException }
+/// Details of failure to access and/or cast an IDataRecord field.
+type DbReaderException =
+    inherit Exception
+    val FieldName : string option
 ```
-
-> It's important to note that Donald will only raise exceptions in _exceptional_ situations.
 
 ## Performance
 

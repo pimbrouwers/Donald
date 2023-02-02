@@ -16,11 +16,7 @@ module Extensions =
                 if x.State = ConnectionState.Closed then
                     x.Open()
             with ex ->
-                let error = DbConnectionError {
-                    ConnectionString = x.ConnectionString
-                    Error = ex }
-
-                raise (DbFailureException error)
+                raise (DbConnectionException(x, ex))
 
         /// Safely attempt to open a new IDbTransaction or
         /// return FailedOpenConnectionException.
@@ -34,11 +30,7 @@ module Extensions =
                         ct.ThrowIfCancellationRequested()
                         x.Open()
             with ex ->
-                let error = DbConnectionError {
-                    ConnectionString = x.ConnectionString
-                    Error = ex }
-
-                return raise (DbFailureException error)
+                return raise (DbConnectionException(x, ex))
         }
 
         /// Safely attempt to create a new IDbTransaction or
@@ -47,13 +39,8 @@ module Extensions =
             try
                 x.TryOpenConnection()
                 x.BeginTransaction()
-            with
-            | ex ->
-                let error = DbTransactionError {
-                    Step = TxBegin
-                    Error = ex }
-
-                raise (DbFailureException error)
+            with ex ->
+                raise (DbExecutionException(TxBegin, ex))
 
         /// Safely attempt to create a new IDbTransaction or
         /// return CouldNotBeginTransactionException.
@@ -68,13 +55,8 @@ module Extensions =
                 | _ ->
                     ct.ThrowIfCancellationRequested()
                     return x.BeginTransaction()
-            with
-            | ex ->
-                let error = DbTransactionError {
-                    Step = TxBegin
-                    Error = ex }
-
-                return raise (DbFailureException error)
+            with ex ->
+                return raise (DbExecutionException(TxBegin, ex))
         }
 
     type IDbTransaction with
@@ -83,11 +65,7 @@ module Extensions =
             try
                 if not(isNull x) && not(isNull x.Connection) then x.Rollback()
             with ex  ->
-                let error = DbTransactionError {
-                    Step = TxRollback
-                    Error = ex }
-
-                raise (DbFailureException error)
+                raise (DbExecutionException(TxRollback, ex))
 
         /// Safely attempt to rollback an IDbTransaction.
         member x.TryRollbackAsync(?cancellationToken : CancellationToken) = task {
@@ -100,11 +78,7 @@ module Extensions =
                         ct.ThrowIfCancellationRequested()
                         x.Rollback()
             with ex  ->
-                let error = DbTransactionError {
-                    Step = TxRollback
-                    Error = ex }
-
-                return raise (DbFailureException error)
+                return raise (DbExecutionException(TxRollback, ex))
         }
 
         /// Safely attempt to commit an IDbTransaction.
@@ -113,16 +87,12 @@ module Extensions =
             try
                 if not(isNull x) && not(isNull x.Connection) then x.Commit()
             with ex ->
-                /// Is supposed to throw System.InvalidOperationException
-                /// when commmited or rolled back already, but most
-                /// implementations do not. So in all cases try rolling back
+                // Is supposed to throw System.InvalidOperationException
+                // when commmited or rolled back already, but most
+                // implementations do not. So in all cases try rolling back
                 x.TryRollback()
 
-                let error = DbTransactionError {
-                    Step = TxCommit
-                    Error = ex }
-
-                raise (DbFailureException error)
+                raise (DbExecutionException(TxCommit, ex))
 
         /// Safely attempt to commit an IDbTransaction.
         /// Will rollback in the case of Exception.
@@ -137,16 +107,12 @@ module Extensions =
                         ct.ThrowIfCancellationRequested()
                         x.Commit()
             with ex ->
-                /// Is supposed to throw System.InvalidOperationException
-                /// when commmited or rolled back already, but most
-                /// implementations do not. So in all cases try rolling back
+                // Is supposed to throw System.InvalidOperationException
+                // when commmited or rolled back already, but most
+                // implementations do not. So in all cases try rolling back
                 do! x.TryRollbackAsync(ct)
 
-                let error = DbTransactionError {
-                    Step = TxCommit
-                    Error = ex }
-
-                raise (DbFailureException error)
+                return raise (DbExecutionException(TxCommit, ex))
         }
 
     type IDbCommand with
@@ -232,34 +198,19 @@ module Extensions =
             try
                 x.ExecuteNonQuery() |> ignore
             with
-            | :? DbException as ex ->
-                let error = DbExecutionError {
-                    Statement = x.CommandText
-                    Error = ex }
-
-                raise (DbFailureException error)
+            | :? DbException as ex -> raise (DbExecutionException(x, ex))
 
         member internal x.ExecReader (cmdBehavior : CommandBehavior) =
             try
                 x.ExecuteReader(cmdBehavior)
             with
-            | :? DbException as ex ->
-                let error = DbExecutionError {
-                    Statement = x.CommandText
-                    Error = ex }
-
-                raise (DbFailureException error)
+            | :? DbException as ex -> raise (DbExecutionException(x, ex))
 
         member internal x.ExecScalar () =
             try
                 x.ExecuteScalar()
             with
-            | :? DbException as ex ->
-                let error = DbExecutionError {
-                    Statement = x.CommandText
-                    Error = ex }
-
-                raise (DbFailureException error)
+            | :? DbException as ex -> raise (DbExecutionException(x, ex))
 
     type DbCommand with
         member internal x.SetDbParams(param : DbParams) =
@@ -269,66 +220,42 @@ module Extensions =
             try
                 return! x.ExecuteNonQueryAsync(cancellationToken = defaultArg ct CancellationToken.None)
             with
-            | :? DbException as ex ->
-                let error = DbExecutionError {
-                    Statement = x.CommandText
-                    Error = ex }
-
-                return raise (DbFailureException error)
+            | :? DbException as ex -> return raise (DbExecutionException(x, ex))
         }
 
         member internal x.ExecReaderAsync(cmdBehavior : CommandBehavior, ?ct: CancellationToken) = task {
             try
                 return! x.ExecuteReaderAsync(cmdBehavior, cancellationToken = defaultArg ct CancellationToken.None )
             with
-            | :? DbException as ex ->
-                let error = DbExecutionError {
-                    Statement = x.CommandText
-                    Error = ex }
-
-                return raise (DbFailureException error)
+            | :? DbException as ex -> return raise (DbExecutionException(x, ex))
         }
 
         member internal x.ExecScalarAsync(?ct: CancellationToken) = task {
             try
                 return! x.ExecuteScalarAsync(cancellationToken = defaultArg ct CancellationToken.None )
             with
-            | :? DbException as ex ->
-                let error = DbExecutionError {
-                    Statement = x.CommandText
-                    Error = ex }
-
-                return raise (DbFailureException error)
+            | :? DbException as ex -> return raise (DbExecutionException(x, ex))
         }
 
     /// IDataReader extensions
     type IDataReader with
         member private x.GetOrdinalOption (name : string) =
             try
-                let i = x.GetOrdinal(name)
-
-                match x.IsDBNull(i) with
-                | true  -> None
-                | false -> Some(i)
+                // Some vendors will return a -1 index instead of throwing an
+                // IndexOfOutRangeException
+                match x.GetOrdinal name with
+                | i when i < 0 -> raise (IndexOutOfRangeException(name + " is not a valid field name"))
+                | i when x.IsDBNull(i) -> None
+                | i -> Some i
             with
-            | :? IndexOutOfRangeException as ex ->
-                let error = DataReaderOutOfRangeError {
-                    FieldName = name
-                    Error = ex }
-
-                raise (DbFailureException error)
+            | :? IndexOutOfRangeException as ex -> raise (DbReaderException(name, ex))
 
         member private x.GetOption (map : int -> 'a when 'a : struct) (name : string) =
             let fn v =
                 try
                     map v
                 with
-                | :? InvalidCastException as ex ->
-                    let error = DataReaderCastError {
-                        FieldName = name
-                        Error = ex }
-
-                    raise (DbFailureException error)
+                | :? InvalidCastException as ex -> raise (DbReaderException(name, ex))
 
             x.GetOrdinalOption(name)
             |> Option.map fn
