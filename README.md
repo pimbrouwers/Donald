@@ -50,15 +50,13 @@ module Author =
   let ofDataReader (rd : IDataReader) : Author =
       { FullName = rd.ReadString "full_name" }
 
-let authors : Author list =
+let authors (conn : IDbConnection) : Author list =
     let sql = "
     SELECT  full_name
     FROM    author
     WHERE   author_id = @author_id"
 
     let param = [ "author_id", SqlType.Int 1 ]
-
-    use conn = new SQLiteConnection "{your connection string}"
 
     conn
     |> Db.newCommand sql
