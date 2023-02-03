@@ -17,9 +17,6 @@ type DbUnit (cmd : IDbCommand) =
         member x.Dispose () =
             x.Command.Dispose ()
 
-/// Details the steps of database a transaction.
-type DbTransactionStep =  TxBegin | TxCommit | TxRollback
-
 /// Details of failure to connection to a database/server.
 type DbConnectionException =
     inherit Exception
@@ -29,6 +26,9 @@ type DbConnectionException =
     new(message : string, inner : Exception) = { inherit Exception(message, inner); ConnectionString = None }
     new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); ConnectionString = None }
     new(connection : IDbConnection, inner : Exception) = { inherit Exception("Failed to establish database connection", inner); ConnectionString = Some connection.ConnectionString}
+
+/// Details the steps of database a transaction.
+type DbTransactionStep =  TxBegin | TxCommit | TxRollback
 
 /// Details of failure to execute database command or transaction.
 type DbExecutionException =
@@ -52,7 +52,6 @@ type DbReaderException =
     new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); FieldName = None }
     new(fieldName : string, inner : IndexOutOfRangeException) = { inherit Exception($"Failed to read database field: '{fieldName}'", inner); FieldName = Some fieldName }
     new(fieldName : string, inner : InvalidCastException) = { inherit Exception($"Failed to read database field: '{fieldName}'", inner); FieldName = Some fieldName }
-
 
 /// Represents the supported data types for database IO.
 [<RequireQualifiedAccess>]

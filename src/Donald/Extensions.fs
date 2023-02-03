@@ -11,7 +11,7 @@ module Extensions =
     type IDbConnection with
         /// Safely attempt to open a new IDbTransaction or
         /// return FailedOpenConnectionException.
-        member x.TryOpenConnection()  =
+        member x.TryOpenConnection() =
             try
                 if x.State = ConnectionState.Closed then
                     x.Open()
@@ -91,7 +91,6 @@ module Extensions =
                 // when commmited or rolled back already, but most
                 // implementations do not. So in all cases try rolling back
                 x.TryRollback()
-
                 raise (DbExecutionException(TxCommit, ex))
 
         /// Safely attempt to commit an IDbTransaction.
@@ -111,13 +110,31 @@ module Extensions =
                 // when commmited or rolled back already, but most
                 // implementations do not. So in all cases try rolling back
                 do! x.TryRollbackAsync(ct)
-
                 return raise (DbExecutionException(TxCommit, ex))
         }
 
     type IDbCommand with
+        member internal x.Exec() =
+            try
+                x.ExecuteNonQuery() |> ignore
+            with
+            | :? DbException as ex -> raise (DbExecutionException(x, ex))
+
+        member internal x.ExecReader(cmdBehavior : CommandBehavior) =
+            try
+                x.ExecuteReader(cmdBehavior)
+            with
+            | :? DbException as ex -> raise (DbExecutionException(x, ex))
+
+        member internal x.ExecScalar() =
+            try
+                x.ExecuteScalar()
+            with
+            | :? DbException as ex -> raise (DbExecutionException(x, ex))
+
         member internal x.SetDbParams(dbParams : DbParams) =
-            let setParamValue (p : IDbDataParameter) (v : obj) =
+            let setParamValue (dbType : DbType) (p : IDbDataParameter) (v : obj) =
+                p.DbType <- dbType
                 if isNull v then p.Value <- DBNull.Value
                 else p.Value <- v
 
@@ -128,89 +145,28 @@ module Extensions =
                 p.ParameterName <- param.Name
 
                 match param.Value with
-                | SqlType.Null ->
-                    p.Value <- DBNull.Value
-
-                | SqlType.String v ->
-                    p.DbType <- DbType.String
-                    setParamValue p v
-
-                | SqlType.AnsiString v ->
-                    p.DbType <- DbType.AnsiString
-                    setParamValue p v
-
-                | SqlType.Boolean v ->
-                    p.DbType <- DbType.Boolean
-                    setParamValue p v
-
-                | SqlType.Byte v ->
-                    p.DbType <- DbType.Byte
-                    setParamValue p v
-
-                | SqlType.Char v ->
-                    p.DbType <- DbType.AnsiString
-                    setParamValue p v
-
-                | SqlType.AnsiChar v ->
-                    p.DbType <- DbType.String
-                    setParamValue p v
-
-                | SqlType.Decimal v ->
-                    p.DbType <- DbType.Decimal
-                    setParamValue p v
-
+                | SqlType.Null -> p.Value <- DBNull.Value
+                | SqlType.String v -> setParamValue DbType.String p v
+                | SqlType.AnsiString v -> setParamValue DbType.AnsiString p v
+                | SqlType.Boolean v -> setParamValue DbType.Boolean p v
+                | SqlType.Byte v -> setParamValue DbType.Byte p v
+                | SqlType.Char v -> setParamValue DbType.AnsiString p v
+                | SqlType.AnsiChar v -> setParamValue DbType.String p v
+                | SqlType.Decimal v -> setParamValue DbType.Decimal p v
                 | SqlType.Double v
-                | SqlType.Float v ->
-                    p.DbType <- DbType.Double
-                    setParamValue p v
-
-                | SqlType.Int16 v ->
-                    p.DbType <- DbType.Int16
-                    setParamValue p v
-
+                | SqlType.Float v -> setParamValue DbType.Double p v
+                | SqlType.Int16 v -> setParamValue DbType.Int16 p v
                 | SqlType.Int32 v
-                | SqlType.Int v ->
-                    p.DbType <- DbType.Int32
-                    setParamValue p v
-
-                | SqlType.Int64 v ->
-                    p.DbType <- DbType.Int64
-                    setParamValue p v
-
-                | SqlType.Guid v ->
-                    p.DbType <- DbType.Guid
-                    setParamValue p v
-
-                | SqlType.DateTime v ->
-                    p.DbType <- DbType.DateTime
-                    setParamValue p v
-
-                | SqlType.Bytes v ->
-                    p.DbType <- DbType.Binary
-                    setParamValue p v
+                | SqlType.Int v -> setParamValue DbType.Int32 p v
+                | SqlType.Int64 v -> setParamValue DbType.Int64 p v
+                | SqlType.Guid v -> setParamValue DbType.Guid p v
+                | SqlType.DateTime v -> setParamValue DbType.DateTime p v
+                | SqlType.Bytes v -> setParamValue DbType.Binary p v
 
                 x.Parameters.Add(p)
                 |> ignore
 
             x
-
-        member internal x.Exec () =
-            try
-                x.ExecuteNonQuery() |> ignore
-            with
-            | :? DbException as ex -> raise (DbExecutionException(x, ex))
-
-        member internal x.ExecReader (cmdBehavior : CommandBehavior) =
-            try
-                x.ExecuteReader(cmdBehavior)
-            with
-            | :? DbException as ex -> raise (DbExecutionException(x, ex))
-
-        member internal x.ExecScalar () =
-            try
-                x.ExecuteScalar()
-            with
-            | :? DbException as ex -> raise (DbExecutionException(x, ex))
 
     type DbCommand with
         member internal x.SetDbParams(param : DbParams) =
@@ -239,7 +195,7 @@ module Extensions =
 
     /// IDataReader extensions
     type IDataReader with
-        member private x.GetOrdinalOption (name : string) =
+        member private x.GetOrdinalOption(name : string) =
             try
                 // Some vendors will return a -1 index instead of throwing an
                 // IndexOfOutRangeException
@@ -250,7 +206,7 @@ module Extensions =
             with
             | :? IndexOutOfRangeException as ex -> raise (DbReaderException(name, ex))
 
-        member private x.GetOption (map : int -> 'a when 'a : struct) (name : string) =
+        member private x.GetOption(map : int -> 'a when 'a : struct) (name : string) =
             let fn v =
                 try
                     map v
@@ -261,107 +217,83 @@ module Extensions =
             |> Option.map fn
 
         /// Safely retrieve String Option
-        member x.ReadStringOption (name : string) =
-            name |> x.GetOrdinalOption |> Option.map (fun i -> x.GetString(i))
+        member x.ReadStringOption(name : string) = name |> x.GetOrdinalOption |> Option.map(fun i -> x.GetString(i))
 
         /// Safely retrieve Boolean Option
-        member x.ReadBooleanOption (name : string) =
-            name |> x.GetOption (fun i -> x.GetBoolean(i))
+        member x.ReadBooleanOption(name : string) = name |> x.GetOption(fun i -> x.GetBoolean(i))
 
         /// Safely retrieve Byte Option
-        member x.ReadByteOption (name : string) =
-            name |> x.GetOption (fun i -> x.GetByte(i))
+        member x.ReadByteOption(name : string) = name |> x.GetOption(fun i -> x.GetByte(i))
 
         /// Safely retrieve Char Option
-        member x.ReadCharOption (name : string) =
-            name |> x.GetOption (fun i -> x.GetString(i).[0])
+        member x.ReadCharOption(name : string) = name |> x.GetOption(fun i -> x.GetString(i).[0])
 
         /// Safely retrieve DateTime Option
-        member x.ReadDateTimeOption (name : string) =
-            name |> x.GetOption (fun i -> x.GetDateTime(i))
+        member x.ReadDateTimeOption(name : string) = name |> x.GetOption(fun i -> x.GetDateTime(i))
 
         /// Safely retrieve Decimal Option
-        member x.ReadDecimalOption (name : string) =
-            name |> x.GetOption (fun i -> x.GetDecimal(i))
+        member x.ReadDecimalOption(name : string) = name |> x.GetOption(fun i -> x.GetDecimal(i))
 
         /// Safely retrieve Double Option
-        member x.ReadDoubleOption (name : string) =
-            name |> x.GetOption (fun i -> x.GetDouble(i))
+        member x.ReadDoubleOption(name : string) = name |> x.GetOption(fun i -> x.GetDouble(i))
 
         /// Safely retrieve Float Option
-        member x.ReadFloatOption (name : string) =
-            x.ReadDoubleOption name
+        member x.ReadFloatOption(name : string) = x.ReadDoubleOption name
 
         /// Safely retrieve Guid Option
-        member x.ReadGuidOption (name : string) =
-            name |> x.GetOption (fun i -> x.GetGuid(i))
+        member x.ReadGuidOption(name : string) = name |> x.GetOption(fun i -> x.GetGuid(i))
 
         /// Safely retrieve Int16 Option
-        member x.ReadInt16Option (name : string) =
-            name |> x.GetOption (fun i -> x.GetInt16(i))
+        member x.ReadInt16Option (name : string) = name |> x.GetOption(fun i -> x.GetInt16(i))
 
         /// Safely retrieve Int32 Option
-        member x.ReadInt32Option (name : string) =
-            name |> x.GetOption (fun i -> x.GetInt32(i))
+        member x.ReadInt32Option (name : string) = name |> x.GetOption(fun i -> x.GetInt32(i))
 
         /// Safely retrieve Int64 Option
-        member x.ReadInt64Option (name : string) =
-            name |> x.GetOption (fun i -> x.GetInt64(i))
+        member x.ReadInt64Option (name : string) = name |> x.GetOption(fun i -> x.GetInt64(i))
 
         // ------------
         // Defaults
         // ------------
 
         /// Safely retrieve String or return provided default
-        member x.ReadString (name : string) =
-            x.ReadStringOption name |> Option.defaultValue String.Empty
+        member x.ReadString(name : string) = x.ReadStringOption name |> Option.defaultValue String.Empty
 
         /// Safely retrieve Boolean or return provided default
-        member x.ReadBoolean (name : string) =
-            x.ReadBooleanOption name |> Option.defaultValue false
+        member x.ReadBoolean(name : string) = x.ReadBooleanOption name |> Option.defaultValue false
 
         /// Safely retrieve Byte or return provided default
-        member x.ReadByte (name : string) =
-            x.ReadByteOption name |> Option.defaultValue Byte.MinValue
+        member x.ReadByte(name : string) = x.ReadByteOption name |> Option.defaultValue Byte.MinValue
 
         /// Safely retrieve Char or return provided default
-        member x.ReadChar (name : string) =
-            x.ReadCharOption name |> Option.defaultValue Char.MinValue
+        member x.ReadChar(name : string) = x.ReadCharOption name |> Option.defaultValue Char.MinValue
 
         /// Safely retrieve DateTime or return provided default
-        member x.ReadDateTime (name : string) =
-            x.ReadDateTimeOption name |> Option.defaultValue DateTime.MinValue
+        member x.ReadDateTime(name : string) = x.ReadDateTimeOption name |> Option.defaultValue DateTime.MinValue
 
         /// Safely retrieve Decimal or return provided default
-        member x.ReadDecimal (name : string) =
-            x.ReadDecimalOption name |> Option.defaultValue 0.0M
+        member x.ReadDecimal(name : string) = x.ReadDecimalOption name |> Option.defaultValue 0.0M
 
         /// Safely retrieve Double or return provided default
-        member x.ReadDouble (name : string) =
-            x.ReadDoubleOption name |> Option.defaultValue 0.0
+        member x.ReadDouble(name : string) = x.ReadDoubleOption name |> Option.defaultValue 0.0
 
         /// Safely retrieve Float or return provided default
-        member x.ReadFloat (name : string) =
-            x.ReadFloatOption name |> Option.defaultValue 0.0
+        member x.ReadFloat(name : string) = x.ReadFloatOption name |> Option.defaultValue 0.0
 
         /// Safely retrieve Guid or return provided default
-        member x.ReadGuid (name : string) =
-            x.ReadGuidOption name |> Option.defaultValue Guid.Empty
+        member x.ReadGuid(name : string) = x.ReadGuidOption name |> Option.defaultValue Guid.Empty
 
         /// Safely retrieve Int16 or return provided default
-        member x.ReadInt16 (name : string) =
-            x.ReadInt16Option name |> Option.defaultValue 0s
+        member x.ReadInt16 (name : string) = x.ReadInt16Option name |> Option.defaultValue 0s
 
         /// Safely retrieve Int32 or return provided default
-        member x.ReadInt32 (name : string) =
-            x.ReadInt32Option name |> Option.defaultValue 0
+        member x.ReadInt32 (name : string) = x.ReadInt32Option name |> Option.defaultValue 0
 
         /// Safely retrieve Int64 or return provided default
-        member x.ReadInt64 (name : string) =
-            x.ReadInt64Option name |> Option.defaultValue 0L
+        member x.ReadInt64 (name : string) = x.ReadInt64Option name |> Option.defaultValue 0L
 
         /// Safely retrieve byte[]
-        member x.ReadBytesOption (name : string) : byte[] option =
+        member x.ReadBytesOption(name : string) : byte[] option =
             match name |> x.GetOrdinalOption with
             | None   -> None
             | Some i ->
@@ -379,7 +311,7 @@ module Extensions =
                 Some (ms.ToArray())
 
         /// Safely retrieve byte[] or return provided default
-        member x.ReadBytes (name : string) : byte[] =
+        member x.ReadBytes(name : string) : byte[] =
             match x.ReadBytesOption name with
             | None       -> Array.zeroCreate 0
             | Some bytes -> bytes
