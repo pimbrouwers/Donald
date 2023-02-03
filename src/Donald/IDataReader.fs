@@ -20,13 +20,10 @@ module IDataReaderExtensions =
 
         member private x.GetOption(map : int -> 'a when 'a : struct) (name : string) =
             let fn v =
-                try
-                    map v
-                with
-                | :? InvalidCastException as ex -> raise (DbReaderException(name, ex))
+                try map v
+                with | :? InvalidCastException as ex -> raise (DbReaderException(name, ex))
 
-            x.GetOrdinalOption(name)
-            |> Option.map fn
+            x.GetOrdinalOption(name) |> Option.map fn
 
         /// Safely retrieve String Option
         member x.ReadStringOption(name : string) = name |> x.GetOrdinalOption |> Option.map(fun i -> x.GetString(i))

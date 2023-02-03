@@ -9,45 +9,45 @@ open System.Threading
 [<RequireQualifiedAccess>]
 module Db =
     /// Create a new DbUnit instance using the provided IDbConnection.
-    let newCommand (commandText : string) (conn : IDbConnection) =
+    let newCommand (commandText : string) (conn : IDbConnection) : DbUnit =
         let cmd = conn.CreateCommand()
         cmd.CommandText <- commandText
         new DbUnit(cmd)
 
     /// Configure the CancellationToken for the provided DbUnit
-    let setCancellationToken (cancellationToken : CancellationToken) (dbunit : DbUnit) =
+    let setCancellationToken (cancellationToken : CancellationToken) (dbunit : DbUnit) : DbUnit =
         dbunit.CancellationToken <- cancellationToken
         dbunit
 
     /// Configure the CommandBehavior for the provided DbUnit
-    let setCommandBehavior (commandBehavior : CommandBehavior) (dbUnit : DbUnit) =
+    let setCommandBehavior (commandBehavior : CommandBehavior) (dbUnit : DbUnit) : DbUnit =
         dbUnit.CommandBehavior <- commandBehavior
         dbUnit
 
     /// Configure the CommandType for the provided DbUnit
-    let setCommandType (commandType : CommandType) (dbUnit : DbUnit) =
+    let setCommandType (commandType : CommandType) (dbUnit : DbUnit) : DbUnit =
         dbUnit.Command.CommandType <- commandType
         dbUnit
 
     /// Configure the command parameters for the provided DbUnit
-    let setParams (param : RawDbParams) (dbUnit : DbUnit) =
+    let setParams (param : RawDbParams) (dbUnit : DbUnit) : DbUnit =
         dbUnit.Command.SetDbParams(DbParams.create param) |> ignore
         dbUnit
 
     /// Configure the timeout for the provided DbUnit
-    let setTimeout (commandTimeout : int) (dbUnit : DbUnit) =
+    let setTimeout (commandTimeout : int) (dbUnit : DbUnit) : DbUnit =
         dbUnit.Command.CommandTimeout <- commandTimeout
         dbUnit
 
     /// Configure the transaction for the provided DbUnit
-    let setTransaction (tran : IDbTransaction) (dbUnit : DbUnit) =
+    let setTransaction (tran : IDbTransaction) (dbUnit : DbUnit) : DbUnit =
         dbUnit.Command.Transaction <- tran
         dbUnit
 
     //
     // Execution model
 
-    let private tryDo (dbUnit : DbUnit) (fn : IDbCommand -> 'a) =
+    let private tryDo (dbUnit : DbUnit) (fn : IDbCommand -> 'a) : 'a =
         dbUnit.Command.Connection.TryOpenConnection()
         let result = fn dbUnit.Command
         (dbUnit :> IDisposable).Dispose()
