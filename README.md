@@ -22,9 +22,9 @@ Donald is a well-tested library that aims to make working with [ADO.NET](https:/
 - Support all ADO implementations
 - Provide a succinct, type-safe API for interacting with databases
 - Enable asynchronuos workflows
-- Provide explicit error flow control
 - Make object mapping easier
 - Improve data access performance
+- Provide additional context during exceptions
 
 ## Getting Started
 

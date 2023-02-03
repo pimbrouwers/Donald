@@ -217,9 +217,9 @@ type ExecutionTests() =
                 Age = rd.ReadInt32Option "age" |> Option.toNullable
             |})
         |> fun result ->
-            result.IsSome         |> should equal true
+            result.IsSome |> should equal true
             result.Value.FullName |> should equal null
-            result.Value.Age      |> should equal null
+            result.Value.Age |> should equal null
 
     [<Fact>]
     member _.``SELECT scalar value`` () =
@@ -274,7 +274,7 @@ type ExecutionTests() =
         |> Async.AwaitTask
         |> Async.RunSynchronously
         |> fun result ->
-            result.IsSome         |> should equal true
+            result.IsSome |> should equal true
             result.Value.AuthorId |> should equal 1
 
     [<Fact>]
@@ -431,7 +431,7 @@ type ExecutionTests() =
                 let str = Text.Encoding.UTF8.GetString(b)
                 b |> should equal bytes
                 str |> should equal testString
-            | None   -> true |> should equal "Invalid bytes returned"
+            | None -> true |> should equal "Invalid bytes returned"
 
     [<Fact>]
     member _.``INSERT TRAN author then retrieve to verify`` () =
