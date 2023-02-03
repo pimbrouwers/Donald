@@ -40,7 +40,10 @@
 
   <ItemGroup>
     <Compile Include="Core.fs" />
-    <Compile Include="Extensions.fs" />
+    <Compile Include="IDbConnection.fs" />
+    <Compile Include="IDbTransaction.fs" />
+    <Compile Include="IDbCommand.fs" />
+    <Compile Include="IDataReader.fs" />
     <Compile Include="Db.fs" />
   </ItemGroup>
 

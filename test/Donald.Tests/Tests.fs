@@ -77,20 +77,20 @@ type ExecutionTests() =
         let param =
             [
                 "p_null", SqlType.Null
-                "p_string", SqlType.String "p_string"
+                "p_string", sqlString "p_string"
                 "p_ansi_string", SqlType.AnsiString "p_ansi_string"
-                "p_boolean", SqlType.Boolean false
-                "p_byte", SqlType.Byte Byte.MinValue
-                "p_char", SqlType.Char 'a'
+                "p_boolean", sqlBoolean false
+                "p_byte", sqlByte Byte.MinValue
+                "p_char", sqlChar 'a'
                 "p_ansi_char", SqlType.AnsiChar Char.MinValue
-                "p_decimal", SqlType.Decimal 0.0M
-                "p_double", SqlType.Double 0.0
-                "p_float", SqlType.Float 0.0
-                "p_guid", SqlType.Guid guidParam
-                "p_int16", SqlType.Int16 16s
-                "p_int32", SqlType.Int32 32
-                "p_int64", SqlType.Int64 64L
-                "p_date_time", SqlType.DateTime dateTimeParam
+                "p_decimal", sqlDecimal 0.0M
+                "p_double", sqlDouble 0.0
+                "p_float", sqlFloat 0.0
+                "p_guid", sqlGuid guidParam
+                "p_int16", sqlInt16 16s
+                "p_int32", sqlInt32 32
+                "p_int64", sqlInt64 64L
+                "p_date_time", sqlDateTime dateTimeParam
             ]
 
         conn

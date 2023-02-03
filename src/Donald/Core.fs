@@ -2,6 +2,7 @@ namespace Donald
 
 open System
 open System.Data
+open System.Data.Common
 open System.Runtime.Serialization
 open System.Threading
 
@@ -90,3 +91,67 @@ module DbParams =
     /// Create a new DbParam list from raw inputs.
     let create (lst : RawDbParams) =
         [ for k, v in lst -> { Name = k; Value = v } ]
+
+
+//
+// Helpers
+
+module internal DbUnit =
+    let toDetailString (dbUnit : DbUnit) =
+        let cmd = dbUnit.Command :?> DbCommand
+        let param =
+            [ for i in 0 .. cmd.Parameters.Count - 1 ->
+                let p = cmd.Parameters.[i]
+                let pName = p.ParameterName
+                let pValue = if isNull p.Value || p.Value = DBNull.Value then "NULL" else string p.Value
+                String.Concat [ "@"; pName; " = "; pValue ] ]
+            |> String.concat ", "
+            |> fun str -> if (String.IsNullOrWhiteSpace str) then "--" else str
+
+        String.Concat [ "\n"; "Parameters:\n"; param; "\n\nCommand Text:\n"; cmd.CommandText ]
+
+[<AutoOpen>]
+module SqlType =
+    let inline sqlType (valueFn : 'a -> SqlType) (input : 'a option) =
+        match input with
+        | Some x -> x |> valueFn
+        | None -> SqlType.Null
+
+    let inline sqlBoolean input = SqlType.Boolean input
+    let inline sqlBooleanOrNull input = sqlType sqlBoolean input
+
+    let inline sqlByte input = SqlType.Byte (byte input)
+    let inline sqlByteOrNull input = sqlType sqlByte input
+
+    let inline sqlBytes input = SqlType.Bytes input
+    let inline sqlBytesOrNull input = sqlType sqlBytes input
+
+    let inline sqlChar input = SqlType.Char (char input)
+    let inline sqlCharOrNull input = sqlType sqlChar input
+
+    let inline sqlDateTime input = SqlType.DateTime input
+    let inline sqlDateTimeOrNull input = sqlType sqlDateTime input
+
+    let inline sqlDecimal input = SqlType.Decimal (decimal input)
+    let inline sqlDecimalOrNull input = sqlType sqlDecimal input
+
+    let inline sqlDouble input = SqlType.Double (double input)
+    let inline sqlDoubleOrNull input = sqlType sqlDouble input
+
+    let inline sqlFloat input = SqlType.Float (float input)
+    let inline sqlFloatOrNull input = sqlType sqlFloat input
+
+    let inline sqlGuid input = SqlType.Guid input
+    let inline sqlGuidOrNull input = sqlType sqlGuid input
+
+    let inline sqlInt16 input = SqlType.Int16 (int16 input)
+    let inline sqlInt16OrNull input = sqlType sqlInt16 input
+
+    let inline sqlInt32 input = SqlType.Int32 (int32 input)
+    let inline sqlInt32OrNull input = sqlType sqlInt32 input
+
+    let inline sqlInt64 input = SqlType.Int64 (int64 input)
+    let inline sqlInt64OrNull input = sqlType sqlInt64 input
+
+    let inline sqlString input = SqlType.String (string input)
+    let inline sqlStringOrNull input = sqlType sqlString input
