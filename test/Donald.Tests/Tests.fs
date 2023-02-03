@@ -144,6 +144,19 @@ type ExecutionTests() =
             result.Value |> should equal 1
 
     [<Fact>]
+    member _.``DbUnit.toDetailString`` () =
+        let sql = "
+            SELECT author_id, full_name
+            FROM   author
+            WHERE  author_id IN (1,2)"
+
+        conn
+        |> Db.newCommand sql
+        |> DbUnit.toDetailString
+        |> fun str ->
+            str.Length |> should greaterThan 0
+
+    [<Fact>]
     member _.``SELECT records`` () =
         let sql = "
             SELECT author_id, full_name

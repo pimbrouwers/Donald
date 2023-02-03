@@ -98,7 +98,7 @@ type DbReaderException =
 //
 // Helpers
 
-module internal DbUnit =
+module DbUnit =
     let toDetailString (dbUnit : DbUnit) =
         let cmd = dbUnit.Command :?> DbCommand
         let param =
