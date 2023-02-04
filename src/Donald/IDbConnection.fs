@@ -34,18 +34,20 @@ module IDbConnectionExtensions =
         /// Safely attempt to create a new IDbTransaction or
         /// return CouldNotBeginTransactionException.
         member x.TryBeginTransaction()  =
+            x.TryOpenConnection()
+
             try
-                x.TryOpenConnection()
                 x.BeginTransaction()
             with ex ->
-                raise (DbExecutionException(TxBegin, ex))
+                raise (DbTransactionException(TxBegin, ex))
 
         /// Safely attempt to create a new IDbTransaction or
         /// return CouldNotBeginTransactionException.
         member x.TryBeginTransactionAsync(?cancellationToken : CancellationToken)  = task {
+            let ct = defaultArg cancellationToken CancellationToken.None
+            do! x.TryOpenConnectionAsync(ct)
+
             try
-                let ct = defaultArg cancellationToken CancellationToken.None
-                do! x.TryOpenConnectionAsync(ct)
                 match x with
                 | :? DbConnection as c ->
                     let! dbTransaction = c.BeginTransactionAsync(ct)
@@ -54,5 +56,5 @@ module IDbConnectionExtensions =
                     ct.ThrowIfCancellationRequested()
                     return x.BeginTransaction()
             with ex ->
-                return raise (DbExecutionException(TxBegin, ex))
+                return raise (DbTransactionException(TxBegin, ex))
         }

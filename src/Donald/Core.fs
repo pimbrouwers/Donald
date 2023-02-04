@@ -6,6 +6,21 @@ open System.Data.Common
 open System.Runtime.Serialization
 open System.Threading
 
+[<AutoOpen>]
+module DbCommandExtensions =
+    type DbCommand with
+        member internal x.ToDetailString() =
+            let param =
+                [ for i in 0 .. x.Parameters.Count - 1 ->
+                    let p = x.Parameters.[i]
+                    let pName = p.ParameterName
+                    let pValue = if isNull p.Value || p.Value = DBNull.Value then "NULL" else string p.Value
+                    String.Concat("@", pName, " = ", pValue) ]
+                |> fun str -> String.Join(", ", str)
+                |> fun str -> if (String.IsNullOrWhiteSpace(str)) then "--" else str
+
+            String.Join("\n\n", param, x.CommandText)
+
 /// Represents a configurable database command.
 type DbUnit (cmd : IDbCommand) =
     let commandBehavior = CommandBehavior.SequentialAccess
@@ -13,6 +28,8 @@ type DbUnit (cmd : IDbCommand) =
     member _.Command = cmd
     member val CommandBehavior = CommandBehavior.SequentialAccess with get, set
     member val CancellationToken = CancellationToken.None with get,set
+
+    member x.ToDetailString() = (x.Command :?> DbCommand).ToDetailString()
 
     interface IDisposable with
         member x.Dispose () =
@@ -72,17 +89,25 @@ type DbConnectionException =
 /// Details the steps of database a transaction.
 type DbTransactionStep =  TxBegin | TxCommit | TxRollback
 
-/// Details of failure to execute database command or transaction.
+/// Details of failure to process a database command.
 type DbExecutionException =
     inherit Exception
     val Statement : string option
+    new() = { inherit Exception(); Statement = None }
+    new(message : string) = { inherit Exception(message); Statement = None }
+    new(message : string, inner : Exception) = { inherit Exception(message, inner); Statement = None }
+    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); Statement = None }
+    new(cmd : IDbCommand, inner : Exception) = { inherit Exception("Failed to process database command", inner); Statement = Some ((cmd :?> DbCommand).ToDetailString()) }
+
+/// Details of failure to process a database transaction.
+type DbTransactionException =
+    inherit Exception
     val Step : DbTransactionStep option
-    new() = { inherit Exception(); Statement = None; Step = None }
-    new(message : string) = { inherit Exception(message); Statement = None; Step = None }
-    new(message : string, inner : Exception) = { inherit Exception(message, inner); Statement = None; Step = None }
-    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); Statement = None; Step = None }
-    new(cmd : IDbCommand, inner : Exception) = { inherit Exception("Failed to process database command", inner); Statement = Some cmd.CommandText; Step = None }
-    new(step : DbTransactionStep, inner : Exception) = { inherit Exception("Failed to process transaction", inner); Statement = None; Step = Some step }
+    new() = { inherit Exception(); Step = None }
+    new(message : string) = { inherit Exception(message); Step = None }
+    new(message : string, inner : Exception) = { inherit Exception(message, inner); Step = None }
+    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); Step = None }
+    new(step : DbTransactionStep, inner : Exception) = { inherit Exception("Failed to process transaction", inner); Step = Some step }
 
 /// Details of failure to access and/or cast an IDataRecord field.
 type DbReaderException =
@@ -97,20 +122,6 @@ type DbReaderException =
 
 //
 // Helpers
-
-module DbUnit =
-    let toDetailString (dbUnit : DbUnit) =
-        let cmd = dbUnit.Command :?> DbCommand
-        let param =
-            [ for i in 0 .. cmd.Parameters.Count - 1 ->
-                let p = cmd.Parameters.[i]
-                let pName = p.ParameterName
-                let pValue = if isNull p.Value || p.Value = DBNull.Value then "NULL" else string p.Value
-                String.Concat [ "@"; pName; " = "; pValue ] ]
-            |> String.concat ", "
-            |> fun str -> if (String.IsNullOrWhiteSpace str) then "--" else str
-
-        String.Concat [ "\n"; "Parameters:\n"; param; "\n\nCommand Text:\n"; cmd.CommandText ]
 
 [<AutoOpen>]
 module SqlType =

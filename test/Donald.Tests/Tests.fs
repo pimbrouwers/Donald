@@ -152,9 +152,8 @@ type ExecutionTests() =
 
         conn
         |> Db.newCommand sql
-        |> DbUnit.toDetailString
-        |> fun str ->
-            str.Length |> should greaterThan 0
+        |> fun dbUnit ->
+            dbUnit.ToDetailString().Length |> should greaterThan 0
 
     [<Fact>]
     member _.``SELECT records`` () =
@@ -187,7 +186,6 @@ type ExecutionTests() =
             result.Length |> should equal 2
             result[0].FullName |> should equal "Pim Brouwers"
             result[1].FullName |> should equal "John Doe"
-
 
     [<Fact>]
     member _.``SELECT records should fail`` () =

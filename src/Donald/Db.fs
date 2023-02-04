@@ -44,6 +44,10 @@ module Db =
         dbUnit.Command.Transaction <- tran
         dbUnit
 
+    /// Create a new DbUnit instance using the provided IDbTransaction.
+    let newCommandForTransaction (commandText : string) (tran : IDbTransaction) : DbUnit =
+        tran.Connection |> newCommand commandText |> setTransaction tran
+
     //
     // Execution model
 
@@ -83,6 +87,15 @@ module Db =
     /// Execute paramterized query, read only first record and apply mapping.
     let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : 'a option =
         read (fun rd -> if rd.Read() then Some(map rd) else None) dbUnit
+
+    /// Execute an all or none batch of commands.
+    let batch (fn : IDbTransaction -> 'a) (conn : IDbConnection) =
+        use tran = conn.TryBeginTransaction()
+        try
+            fn tran
+        with _ ->
+            tran.TryRollback()
+            reraise ()
 
     module Async =
         let private tryDoAsync (dbUnit : DbUnit) (fn : DbCommand -> Task<'a>) : Task<'a> =
@@ -126,3 +139,13 @@ module Db =
         /// Asynchronously execute paramterized query, read only first record and apply mapping.
         let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<'a option> =
             read (fun rd -> if rd.Read() then Some(map rd) else None) dbUnit
+
+        /// Execute an all or none batch of commands asynchronously.
+        let batch (fn : IDbTransaction -> Task<unit>) (conn : IDbConnection) =
+            task {
+                use! tran = conn.TryBeginTransactionAsync()
+                try
+                    return! fn tran
+                with _ ->
+                    do! tran.TryRollbackAsync()
+            }

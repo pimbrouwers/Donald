@@ -12,7 +12,7 @@ module IDbTransactionExtensions =
             try
                 if not(isNull x) && not(isNull x.Connection) then x.Rollback()
             with ex  ->
-                raise (DbExecutionException(TxRollback, ex))
+                raise (DbTransactionException(TxRollback, ex))
 
         /// Safely attempt to rollback an IDbTransaction.
         member x.TryRollbackAsync(?cancellationToken : CancellationToken) = task {
@@ -25,7 +25,7 @@ module IDbTransactionExtensions =
                         ct.ThrowIfCancellationRequested()
                         x.Rollback()
             with ex  ->
-                return raise (DbExecutionException(TxRollback, ex))
+                return raise (DbTransactionException(TxRollback, ex))
         }
 
         /// Safely attempt to commit an IDbTransaction.
@@ -38,7 +38,7 @@ module IDbTransactionExtensions =
                 // when commmited or rolled back already, but most
                 // implementations do not. So in all cases try rolling back
                 x.TryRollback()
-                raise (DbExecutionException(TxCommit, ex))
+                raise (DbTransactionException(TxCommit, ex))
 
         /// Safely attempt to commit an IDbTransaction.
         /// Will rollback in the case of Exception.
@@ -57,5 +57,5 @@ module IDbTransactionExtensions =
                 // when commmited or rolled back already, but most
                 // implementations do not. So in all cases try rolling back
                 do! x.TryRollbackAsync(ct)
-                return raise (DbExecutionException(TxCommit, ex))
+                return raise (DbTransactionException(TxCommit, ex))
         }
