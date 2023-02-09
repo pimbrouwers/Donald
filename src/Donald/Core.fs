@@ -21,6 +21,10 @@ module DbCommandExtensions =
 
             String.Join("\n\n", param, x.CommandText)
 
+    type IDbCommand with
+        member internal x.ToDetailString() =
+            (x :?> DbCommand).ToDetailString()
+
 /// Represents a configurable database command.
 type DbUnit (cmd : IDbCommand) =
     let commandBehavior = CommandBehavior.SequentialAccess
@@ -29,7 +33,7 @@ type DbUnit (cmd : IDbCommand) =
     member val CommandBehavior = CommandBehavior.SequentialAccess with get, set
     member val CancellationToken = CancellationToken.None with get,set
 
-    member x.ToDetailString() = (x.Command :?> DbCommand).ToDetailString()
+    member x.ToDetailString() = x.Command.ToDetailString()
 
     interface IDisposable with
         member x.Dispose () =
@@ -84,7 +88,7 @@ type DbConnectionException =
     new(message : string) = { inherit Exception(message); ConnectionString = None }
     new(message : string, inner : Exception) = { inherit Exception(message, inner); ConnectionString = None }
     new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); ConnectionString = None }
-    new(connection : IDbConnection, inner : Exception) = { inherit Exception("Failed to establish database connection", inner); ConnectionString = Some connection.ConnectionString}
+    new(connection : IDbConnection, inner : Exception) = { inherit Exception($"Failed to establish database connection: {connection.ConnectionString}", inner); ConnectionString = Some connection.ConnectionString}
 
 /// Details the steps of database a transaction.
 type DbTransactionStep =  TxBegin | TxCommit | TxRollback
@@ -97,7 +101,7 @@ type DbExecutionException =
     new(message : string) = { inherit Exception(message); Statement = None }
     new(message : string, inner : Exception) = { inherit Exception(message, inner); Statement = None }
     new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); Statement = None }
-    new(cmd : IDbCommand, inner : Exception) = { inherit Exception("Failed to process database command", inner); Statement = Some ((cmd :?> DbCommand).ToDetailString()) }
+    new(cmd : IDbCommand, inner : Exception) = { inherit Exception($"Failed to process database command:\n{cmd.ToDetailString()}", inner); Statement = Some (cmd.ToDetailString()) }
 
 /// Details of failure to process a database transaction.
 type DbTransactionException =
@@ -107,7 +111,7 @@ type DbTransactionException =
     new(message : string) = { inherit Exception(message); Step = None }
     new(message : string, inner : Exception) = { inherit Exception(message, inner); Step = None }
     new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); Step = None }
-    new(step : DbTransactionStep, inner : Exception) = { inherit Exception("Failed to process transaction", inner); Step = Some step }
+    new(step : DbTransactionStep, inner : Exception) = { inherit Exception($"Failed to process transaction at step {step}", inner); Step = Some step }
 
 /// Details of failure to access and/or cast an IDataRecord field.
 type DbReaderException =
