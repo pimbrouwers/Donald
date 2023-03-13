@@ -4,9 +4,7 @@ open System
 open System.Data
 open System.Data.Common
 open System.Threading.Tasks
-#if NETSTANDARD2_0 || NETSTANDARD2_1
-    open FSharp.Control.Tasks
-#endif
+open System.Threading
 
 [<RequireQualifiedAccess>]
 module Db =
@@ -14,7 +12,12 @@ module Db =
     let newCommand (commandText : string) (conn : IDbConnection) =
         let cmd = conn.CreateCommand()
         cmd.CommandText <- commandText
-        DbUnit(cmd)
+        new DbUnit(cmd)
+
+    /// Configure the CancellationToken for the provided DbUnit
+    let setCancellationToken (cancellationToken : CancellationToken) (dbunit : DbUnit) =
+        dbunit.CancellationToken <- cancellationToken
+        dbunit
 
     /// Configure the CommandBehavior for the provided DbUnit
     let setCommandBehavior (commandBehavior : CommandBehavior) (dbUnit : DbUnit) =
@@ -41,25 +44,30 @@ module Db =
         dbUnit.Command.Transaction <- tran
         dbUnit
 
-    let private tryDo (fn : IDbCommand -> 'a) (cmd : IDbCommand) : Result<'a, DbError> =
+    //
+    // Execution model
+
+    let private tryDo (dbUnit : DbUnit) (fn : IDbCommand -> 'a) : Result<'a, DbError> =
         try
-            cmd.Connection.TryOpenConnection() |> ignore
-            let result = fn cmd
-            cmd.Dispose()
+            dbUnit.Command.Connection.TryOpenConnection ()
+            let result = fn dbUnit.Command
+            (dbUnit :> IDisposable).Dispose ()
             Ok result
         with
         | DbFailureException e -> Error e
 
     /// Execute parameterized query with no results.
     let exec (dbUnit : DbUnit) : Result<unit, DbError> =
-        tryDo (fun dbUnit -> dbUnit.Exec()) dbUnit.Command
+        tryDo dbUnit (fun cmd ->
+            cmd.Exec ())
 
     /// Execute parameterized query many times with no results.
     let execMany (param : RawDbParams list) (dbUnit : DbUnit) : Result<unit, DbError> =
         try
+            dbUnit.Command.Connection.TryOpenConnection ()
             for p in param do
                 let dbParams = DbParams.create p
-                dbUnit.Command.SetDbParams(dbParams).Exec() |> ignore
+                dbUnit.Command.SetDbParams(dbParams).Exec () |> ignore
 
             Ok ()
         with
@@ -67,35 +75,32 @@ module Db =
 
     /// Execute scalar query and box the result.
     let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Result<'a, DbError> =
-        tryDo (fun cmd ->
-            let value = cmd.ExecuteScalar()
+        tryDo dbUnit (fun cmd ->
+            let value = cmd.ExecScalar ()
             convert value)
-            dbUnit.Command
+
+    /// Execute paramterized query and return IDataReader
+    let read (fn : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Result<'a, DbError> =
+        tryDo dbUnit (fun cmd ->
+            use rd = cmd.ExecReader (dbUnit.CommandBehavior) :?> 'reader
+            fn rd)
 
     /// Execute parameterized query, enumerate all records and apply mapping.
     let query (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Result<'a list, DbError> =
-        tryDo (fun cmd ->
-            use rd = cmd.ExecReader(dbUnit.CommandBehavior) :?> 'reader
-            [ while rd.Read() do yield map rd ])
-            dbUnit.Command
+        read (fun rd -> [ while rd.Read () do yield map rd ]) dbUnit
+
 
     /// Execute paramterized query, read only first record and apply mapping.
     let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Result<'a option, DbError> =
-        tryDo (fun cmd ->
-            use rd = cmd.ExecReader(dbUnit.CommandBehavior) :?> 'reader
-            if rd.Read() then Some(map rd) else None)
-            dbUnit.Command
-
-    /// Execute paramterized query and return IDataReader
-    let read (dbUnit : DbUnit) : IDataReader =
-        dbUnit.Command.ExecReader(dbUnit.CommandBehavior)
+        read (fun rd -> if rd.Read () then Some(map rd) else None) dbUnit
 
     module Async =
-        let private tryDoAsync (fn : DbCommand -> Task<'a>) (cmd : IDbCommand) : Task<Result<'a, DbError>> =
-            task {                
+        let private tryDoAsync (dbUnit : DbUnit) (fn : DbCommand -> Task<'a>) : Task<Result<'a, DbError>> =
+            task {
                 try
-                    cmd.Connection.TryOpenConnection() |> ignore
-                    let! result = fn (cmd :?> DbCommand)
+                    do! dbUnit.Command.Connection.TryOpenConnectionAsync(dbUnit.CancellationToken)
+                    let! result = fn (dbUnit.Command :?> DbCommand)
+                    (dbUnit :> IDisposable).Dispose ()
                     return (Ok result)
                 with
                 | DbFailureException e -> return Error e
@@ -103,56 +108,40 @@ module Db =
 
         /// Asynchronously execute parameterized query with no results.
         let exec (dbUnit : DbUnit) : Task<Result<unit, DbError>> =
-            let inner = fun (cmd : DbCommand) -> task {
-                let! _ = cmd.ExecAsync()
+            tryDoAsync dbUnit (fun (cmd : DbCommand) -> task {
+                let! _ = cmd.ExecAsync(dbUnit.CancellationToken)
                 return ()
-            }
-            tryDoAsync inner dbUnit.Command
+            })
 
         /// Asynchronously execute parameterized query many times with no results
         let execMany (param : RawDbParams list) (dbUnit : DbUnit) : Task<Result<unit, DbError>> =
-            let inner = fun (cmd : DbCommand) -> task {
+            tryDoAsync dbUnit (fun (cmd : DbCommand) -> task {
                 for p in param do
                     let dbParams = DbParams.create p
-                    let! _ = cmd.SetDbParams(dbParams).ExecAsync()
+                    let! _ = cmd.SetDbParams(dbParams).ExecAsync(dbUnit.CancellationToken)
                     ()
 
                 return ()
-            }
-            tryDoAsync inner dbUnit.Command
+            })
 
         /// Execute scalar query and box the result.
         let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Task<Result<'a, DbError>> =
-            let inner = fun (cmd : DbCommand) -> task {
-                let! value = cmd.ExecuteScalarAsync()
+            tryDoAsync dbUnit (fun (cmd : DbCommand) -> task {
+                let! value = cmd.ExecScalarAsync (dbUnit.CancellationToken)
                 return convert value
-            }
-            tryDoAsync inner dbUnit.Command
+            })
+
+        /// Asynchronously execute paramterized query and return IDataReader
+        let read (fn : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<Result<'a, DbError>> =
+            tryDoAsync dbUnit (fun (cmd : DbCommand) -> task {
+                use! rd = cmd.ExecReaderAsync(dbUnit.CommandBehavior, dbUnit.CancellationToken)
+                return fn (rd :?> 'reader)
+            })
 
         /// Asynchronously execute parameterized query, enumerate all records and apply mapping.
         let query (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<Result<'a list, DbError>> =
-            let inner = fun (cmd : IDbCommand) -> task {
-                use! rd = (cmd :?> DbCommand).ExecReaderAsync(dbUnit.CommandBehavior)
-                let rd' = rd :?> 'reader
-                return [ while rd.Read() do map rd' ]
-            }
-            tryDoAsync inner dbUnit.Command
+            read (fun rd -> [ while rd.Read () do map rd ]) dbUnit
 
         /// Asynchronously execute paramterized query, read only first record and apply mapping.
         let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<Result<'a option, DbError>> =
-            let inner = fun (cmd : DbCommand) -> task {
-                use! rd = cmd.ExecReaderAsync(dbUnit.CommandBehavior)
-                let rd' = rd :?> 'reader
-                return if rd.Read() then Some(map rd') else None
-            }
-            tryDoAsync inner dbUnit.Command
-
-        /// Asynchronously execute paramterized query and return IDataReader
-        let read (dbUnit : DbUnit) : Task<IDataReader> =
-            let cmd' = dbUnit.Command :?> DbCommand
-
-            task {
-                let! rd = cmd'.ExecReaderAsync(dbUnit.CommandBehavior)
-                let result = rd :> IDataReader
-                return result
-            }
+            read (fun rd -> if rd.Read () then Some(map rd) else None) dbUnit
