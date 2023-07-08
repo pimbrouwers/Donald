@@ -13,9 +13,7 @@ This library is named after him.
 
 ## Key Features
 
-Donald is a well-tested library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) safer and *a lot more* succinct. It is an entirely generic abstraction, and will work with all ADO.NET implementations.
-
-> If you came looking for an ORM (object-relational mapper), this is not the library for you. And may the force be with you.
+Donald is a generic library that aims to make working with [ADO.NET](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) safer and more succinct. It is an entirely generic abstraction, and will work with all ADO.NET implementations.
 
 ## Design Goals
 
@@ -56,7 +54,7 @@ let authors (conn : IDbConnection) : Author list =
     FROM    author
     WHERE   author_id = @author_id"
 
-    let param = [ "author_id", SqlType.Int 1 ]
+    let param = [ "author_id", sqlInt32 1 ]
 
     conn
     |> Db.newCommand sql
@@ -107,13 +105,13 @@ let sql = "SELECT author_id, full_name FROM author"
 
 conn
 |> Db.newCommand sql
-|> Db.setParams [ "author_id", SqlType.Int 1 ]
+|> Db.setParams [ "author_id", sqlInt32 1 ]
 |> Db.querySingle Author.ofDataReader // Author option
 
 // Async
 conn
 |> Db.newCommand sql
-|> Db.setParams [ "author_id", SqlType.Int 1 ]
+|> Db.setParams [ "author_id", sqlInt32 1 ]
 |> Db.Async.querySingle Author.ofDataReader // Task<Author option>
 ```
 
@@ -123,7 +121,7 @@ conn
 let sql = "INSERT INTO author (full_name)"
 
 // Strongly typed input parameters
-let param = [ "full_name", SqlType.String "John Doe" ]
+let param = [ "full_name", sqlString "John Doe" ]
 
 conn
 |> Db.newCommand sql
@@ -143,8 +141,8 @@ conn
 let sql = "INSERT INTO author (full_name)"
 
 let param =
-    [ "full_name", SqlType.String "John Doe"
-      "full_name", SqlType.String "Jane Doe" ]
+    [ "full_name", sqlString "John Doe"
+      "full_name", sqlString "Jane Doe" ]
 
 conn
 |> Db.newCommand sql
@@ -159,7 +157,7 @@ conn
 ```fsharp
 let sql = "INSERT INTO author (full_name)"
 
-let param = [ "full_name", SqlType.String "John Doe" ]
+let param = [ "full_name", sqlString "John Doe" ]
 
 conn
 |> Db.newCommand sql
@@ -186,7 +184,7 @@ Donald exposes most of it's functionality through the `Db` module. But three `ID
 use tran = conn.TryBeginTransaction()
 
 let insertSql = "INSERT INTO author (full_name)"
-let param = [ "full_name", SqlType.String "John Doe" ]
+let param = [ "full_name", sqlString "John Doe" ]
 
 let insertResult =
     conn
@@ -210,13 +208,48 @@ match insertResult with
     tran.TryRollback ()
     Error e
 ```
+
+## Command Parameters
+
+Command parameters are represented by `SqlType` which contains a case for all relevant types.
+
+```fsharp
+type SqlType =
+    | Null
+    | String     of string
+    | AnsiString of string
+    | Boolean    of bool
+    | Byte       of byte
+    | Char       of char
+    | AnsiChar   of char
+    | Decimal    of decimal
+    | Double     of double
+    | Float      of float
+    | Guid       of Guid
+    | Int16      of int16
+    | Int32      of int32
+    | Int        of int32
+    | Int64      of int64
+    | DateTime   of DateTime
+    | Bytes      of byte[]
+
+let p1 : SqlType = SqlType.Null
+let p2 : SqlType = SqlType.Int32 1
+```
+
+Helpers also exist which implicitly call the respective F# conversion function. Which are especially useful when you are working with value types in your program.
+
+```fsharp
+let p1 : SqlType = sqlInt32 "1" // equivalent to SqlType.Int32 (int "1")
+```
+
+> `string` is used here **only** for demonstration purposes.
+
 ## Reading Values
 
 To make obtaining values from reader more straight-forward, 2 sets of extension methods are available for:
 1. Get value, automatically defaulted
 2. Get value as `option<'a>`
-
-> If you need an explicit `Nullable<'a>` you can use `Option.asNullable`.
 
 Assuming we have an active `IDataReader` called `rd` and are currently reading a row, the following extension methods are available to simplify reading values:
 
@@ -250,9 +283,11 @@ rd.ReadInt64Option "some_field"    // string -> int64 option
 rd.ReadBytesOption "some_field"    // string -> byte[] option
 ```
 
+> If you need an explicit `Nullable<'a>` you can use `Option.asNullable`.
+
 ## Exceptions
 
-Donald exposes several custom exceptions which interleave the exceptions thrown by ADO.NET with contextually relevant metadata.
+Several custom exceptions exist which interleave the exceptions thrown by ADO.NET with contextually relevant metadata.
 
 ```fsharp
 /// Details of failure to connection to a database/server.
@@ -274,7 +309,7 @@ type DbReaderException =
 
 ## Performance
 
-By default, Donald will consume `IDataReader` using `CommandBehavior.SequentialAccess`. This allows the rows and columns to be read in chunks (i.e., streamed), but forward-only. As opposed to being completely read into memory all at once, and readable in any direction. The benefits of this are particular felt when reading large CLOB (string) and BLOB (binary) data. But is also a measureable performance gain for standard query results as well.
+By default, the `IDataReader` is consumed using `CommandBehavior.SequentialAccess`. This allows the rows and columns to be read in chunks (i.e., streamed), but forward-only. As opposed to being completely read into memory all at once, and readable in any direction. The benefits of this are particular felt when reading large CLOB (string) and BLOB (binary) data. But is also a measureable performance gain for standard query results as well.
 
 The only nuance to sequential access is that **columns must be read in the same order found in the `SELECT` clause**. Aside from that, there is no noticeable difference from the perspective of a library consumer.
 
