@@ -3,7 +3,27 @@ namespace Donald
 open System
 open System.Data
 open System.Data.Common
+open System.Runtime.Serialization
 open System.Threading
+
+[<AutoOpen>]
+module DbCommandExtensions =
+    type DbCommand with
+        member internal x.ToDetailString() =
+            let param =
+                [ for i in 0 .. x.Parameters.Count - 1 ->
+                    let p = x.Parameters.[i]
+                    let pName = p.ParameterName
+                    let pValue = if isNull p.Value || p.Value = DBNull.Value then "NULL" else string p.Value
+                    String.Concat("@", pName, " = ", pValue) ]
+                |> fun str -> String.Join(", ", str)
+                |> fun str -> if (String.IsNullOrWhiteSpace(str)) then "--" else str
+
+            String.Join("\n\n", param, x.CommandText)
+
+    type IDbCommand with
+        member internal x.ToDetailString() =
+            (x :?> DbCommand).ToDetailString()
 
 /// Represents a configurable database command.
 type DbUnit (cmd : IDbCommand) =
@@ -13,46 +33,11 @@ type DbUnit (cmd : IDbCommand) =
     member val CommandBehavior = CommandBehavior.SequentialAccess with get, set
     member val CancellationToken = CancellationToken.None with get,set
 
+    member x.ToDetailString() = x.Command.ToDetailString()
+
     interface IDisposable with
         member x.Dispose () =
             x.Command.Dispose ()
-
-
-/// Details of failure to connection to a database/server.
-type DbConnectionError =
-    { ConnectionString : string
-      Error : exn }
-
-/// Details the steps of database a transaction.
-type DbTransactionStep =  TxBegin | TxCommit | TxRollback
-
-/// Details of transaction failure.
-type DbTransactionError =
-    { Step : DbTransactionStep
-      Error : exn }
-
-/// Details of failure to execute database command.
-type DbExecutionError =
-    { Statement : string
-      Error : DbException }
-
-/// Details of failure to cast a IDataRecord field.
-type DataReaderCastError =
-    { FieldName : string
-      Error : InvalidCastException }
-
-type DataReaderOutOfRangeError =
-    { FieldName : string
-      Error : IndexOutOfRangeException }
-
-type DbError =
-    | DbConnectionError of DbConnectionError
-    | DbTransactionError of DbTransactionError
-    | DbExecutionError of DbExecutionError
-    | DataReaderCastError of DataReaderCastError
-    | DataReaderOutOfRangeError of DataReaderOutOfRangeError
-
-exception DbFailureException of DbError
 
 /// Represents the supported data types for database IO.
 [<RequireQualifiedAccess>]
@@ -91,3 +76,105 @@ module DbParams =
     /// Create a new DbParam list from raw inputs.
     let create (lst : RawDbParams) =
         [ for k, v in lst -> { Name = k; Value = v } ]
+
+//
+// Exceptions
+
+/// Details of failure to connection to a database/server.
+type DbConnectionException =
+    inherit Exception
+    val ConnectionString : string option
+    new() = { inherit Exception(); ConnectionString = None }
+    new(message : string) = { inherit Exception(message); ConnectionString = None }
+    new(message : string, inner : Exception) = { inherit Exception(message, inner); ConnectionString = None }
+    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); ConnectionString = None }
+    new(connection : IDbConnection, inner : Exception) = { inherit Exception($"Failed to establish database connection: {connection.ConnectionString}", inner); ConnectionString = Some connection.ConnectionString}
+
+/// Details the steps of database a transaction.
+type DbTransactionStep =  TxBegin | TxCommit | TxRollback
+
+/// Details of failure to process a database command.
+type DbExecutionException =
+    inherit Exception
+    val Statement : string option
+    new() = { inherit Exception(); Statement = None }
+    new(message : string) = { inherit Exception(message); Statement = None }
+    new(message : string, inner : Exception) = { inherit Exception(message, inner); Statement = None }
+    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); Statement = None }
+    new(cmd : IDbCommand, inner : Exception) = { inherit Exception($"Failed to process database command:\n{cmd.ToDetailString()}", inner); Statement = Some (cmd.ToDetailString()) }
+
+/// Details of failure to process a database transaction.
+type DbTransactionException =
+    inherit Exception
+    val Step : DbTransactionStep option
+    new() = { inherit Exception(); Step = None }
+    new(message : string) = { inherit Exception(message); Step = None }
+    new(message : string, inner : Exception) = { inherit Exception(message, inner); Step = None }
+    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); Step = None }
+    new(step : DbTransactionStep, inner : Exception) = { inherit Exception($"Failed to process transaction at step {step}", inner); Step = Some step }
+
+/// Details of failure to access and/or cast an IDataRecord field.
+type DbReaderException =
+    inherit Exception
+    val FieldName : string option
+    new() = { inherit Exception(); FieldName = None }
+    new(message : string) = { inherit Exception(message); FieldName = None }
+    new(message : string, inner : Exception) = { inherit Exception(message, inner); FieldName = None }
+    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); FieldName = None }
+    new(fieldName : string, inner : IndexOutOfRangeException) = { inherit Exception($"Failed to read database field: '{fieldName}'", inner); FieldName = Some fieldName }
+    new(fieldName : string, inner : InvalidCastException) = { inherit Exception($"Failed to read database field: '{fieldName}'", inner); FieldName = Some fieldName }
+
+//
+// Helpers
+
+[<AutoOpen>]
+module SqlType =
+    let inline sqlType (valueFn : 'a -> SqlType) (input : 'a option) =
+        match input with
+        | Some x -> x |> valueFn
+        | None -> SqlType.Null
+
+    let inline sqlAnsiChar input = SqlType.AnsiChar (char input)
+    let inline sqlAnsiCharOrNull input = sqlType sqlAnsiChar input
+
+    let inline sqlAnsiString input = SqlType.AnsiString (string input)
+    let inline sqlAnsiStringOrNull input = sqlType sqlAnsiString input
+
+    let inline sqlBoolean input = SqlType.Boolean input
+    let inline sqlBooleanOrNull input = sqlType sqlBoolean input
+
+    let inline sqlByte input = SqlType.Byte (byte input)
+    let inline sqlByteOrNull input = sqlType sqlByte input
+
+    let inline sqlBytes input = SqlType.Bytes input
+    let inline sqlBytesOrNull input = sqlType sqlBytes input
+
+    let inline sqlChar input = SqlType.Char (char input)
+    let inline sqlCharOrNull input = sqlType sqlChar input
+
+    let inline sqlDateTime input = SqlType.DateTime input
+    let inline sqlDateTimeOrNull input = sqlType sqlDateTime input
+
+    let inline sqlDecimal input = SqlType.Decimal (decimal input)
+    let inline sqlDecimalOrNull input = sqlType sqlDecimal input
+
+    let inline sqlDouble input = SqlType.Double (double input)
+    let inline sqlDoubleOrNull input = sqlType sqlDouble input
+
+    let inline sqlFloat input = SqlType.Float (float input)
+    let inline sqlFloatOrNull input = sqlType sqlFloat input
+
+    let inline sqlGuid input = SqlType.Guid input
+    let inline sqlGuidOrNull input = sqlType sqlGuid input
+
+    let inline sqlInt16 input = SqlType.Int16 (int16 input)
+    let inline sqlInt16OrNull input = sqlType sqlInt16 input
+
+    let inline sqlInt32 input = SqlType.Int32 (int32 input)
+    let inline sqlInt32OrNull input = sqlType sqlInt32 input
+
+    let inline sqlInt64 input = SqlType.Int64 (int64 input)
+    let inline sqlInt64OrNull input = sqlType sqlInt64 input
+
+    let inline sqlString input = SqlType.String (string input)
+    let inline sqlStringOrNull input = sqlType sqlString input

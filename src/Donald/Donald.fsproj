@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <AssemblyName>Donald</AssemblyName>
-    <Version>9.0.0</Version>
+    <Version>10.0.0</Version>
 
     <!-- General info -->
     <Description>Functional F# interface for ADO.NET.</Description>
@@ -40,7 +40,10 @@
 
   <ItemGroup>
     <Compile Include="Core.fs" />
-    <Compile Include="Extensions.fs" />
+    <Compile Include="IDbConnection.fs" />
+    <Compile Include="IDbTransaction.fs" />
+    <Compile Include="IDbCommand.fs" />
+    <Compile Include="IDataReader.fs" />
     <Compile Include="Db.fs" />
   </ItemGroup>
 

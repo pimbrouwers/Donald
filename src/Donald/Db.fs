@@ -9,139 +9,143 @@ open System.Threading
 [<RequireQualifiedAccess>]
 module Db =
     /// Create a new DbUnit instance using the provided IDbConnection.
-    let newCommand (commandText : string) (conn : IDbConnection) =
+    let newCommand (commandText : string) (conn : IDbConnection) : DbUnit =
         let cmd = conn.CreateCommand()
         cmd.CommandText <- commandText
         new DbUnit(cmd)
 
     /// Configure the CancellationToken for the provided DbUnit
-    let setCancellationToken (cancellationToken : CancellationToken) (dbunit : DbUnit) =
+    let setCancellationToken (cancellationToken : CancellationToken) (dbunit : DbUnit) : DbUnit =
         dbunit.CancellationToken <- cancellationToken
         dbunit
 
     /// Configure the CommandBehavior for the provided DbUnit
-    let setCommandBehavior (commandBehavior : CommandBehavior) (dbUnit : DbUnit) =
+    let setCommandBehavior (commandBehavior : CommandBehavior) (dbUnit : DbUnit) : DbUnit =
         dbUnit.CommandBehavior <- commandBehavior
         dbUnit
 
     /// Configure the CommandType for the provided DbUnit
-    let setCommandType (commandType : CommandType) (dbUnit : DbUnit) =
+    let setCommandType (commandType : CommandType) (dbUnit : DbUnit) : DbUnit =
         dbUnit.Command.CommandType <- commandType
         dbUnit
 
     /// Configure the command parameters for the provided DbUnit
-    let setParams (param : RawDbParams) (dbUnit : DbUnit) =
+    let setParams (param : RawDbParams) (dbUnit : DbUnit) : DbUnit =
         dbUnit.Command.SetDbParams(DbParams.create param) |> ignore
         dbUnit
 
     /// Configure the timeout for the provided DbUnit
-    let setTimeout (commandTimeout : int) (dbUnit : DbUnit) =
+    let setTimeout (commandTimeout : int) (dbUnit : DbUnit) : DbUnit =
         dbUnit.Command.CommandTimeout <- commandTimeout
         dbUnit
 
     /// Configure the transaction for the provided DbUnit
-    let setTransaction (tran : IDbTransaction) (dbUnit : DbUnit) =
+    let setTransaction (tran : IDbTransaction) (dbUnit : DbUnit) : DbUnit =
         dbUnit.Command.Transaction <- tran
         dbUnit
+
+    /// Create a new DbUnit instance using the provided IDbTransaction.
+    let newCommandForTransaction (commandText : string) (tran : IDbTransaction) : DbUnit =
+        tran.Connection |> newCommand commandText |> setTransaction tran
 
     //
     // Execution model
 
-    let private tryDo (dbUnit : DbUnit) (fn : IDbCommand -> 'a) : Result<'a, DbError> =
-        try
-            dbUnit.Command.Connection.TryOpenConnection ()
-            let result = fn dbUnit.Command
-            (dbUnit :> IDisposable).Dispose ()
-            Ok result
-        with
-        | DbFailureException e -> Error e
+    let private tryDo (dbUnit : DbUnit) (fn : IDbCommand -> 'a) : 'a =
+        dbUnit.Command.Connection.TryOpenConnection()
+        let result = fn dbUnit.Command
+        (dbUnit :> IDisposable).Dispose()
+        result
 
     /// Execute parameterized query with no results.
-    let exec (dbUnit : DbUnit) : Result<unit, DbError> =
-        tryDo dbUnit (fun cmd ->
-            cmd.Exec ())
+    let exec (dbUnit : DbUnit) : unit =
+        tryDo dbUnit (fun cmd -> cmd.Exec())
 
     /// Execute parameterized query many times with no results.
-    let execMany (param : RawDbParams list) (dbUnit : DbUnit) : Result<unit, DbError> =
-        try
-            dbUnit.Command.Connection.TryOpenConnection ()
-            for p in param do
-                let dbParams = DbParams.create p
-                dbUnit.Command.SetDbParams(dbParams).Exec () |> ignore
-
-            Ok ()
-        with
-        | DbFailureException e -> Error e
+    let execMany (param : RawDbParams list) (dbUnit : DbUnit) : unit =
+        dbUnit.Command.Connection.TryOpenConnection()
+        for p in param do
+            let dbParams = DbParams.create p
+            dbUnit.Command.SetDbParams(dbParams).Exec()
 
     /// Execute scalar query and box the result.
-    let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Result<'a, DbError> =
+    let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : 'a =
         tryDo dbUnit (fun cmd ->
-            let value = cmd.ExecScalar ()
+            let value = cmd.ExecScalar()
             convert value)
 
     /// Execute paramterized query and return IDataReader
-    let read (fn : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Result<'a, DbError> =
+    let read (fn : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : 'a =
         tryDo dbUnit (fun cmd ->
-            use rd = cmd.ExecReader (dbUnit.CommandBehavior) :?> 'reader
+            use rd = cmd.ExecReader(dbUnit.CommandBehavior) :?> 'reader
             fn rd)
 
     /// Execute parameterized query, enumerate all records and apply mapping.
-    let query (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Result<'a list, DbError> =
-        read (fun rd -> [ while rd.Read () do yield map rd ]) dbUnit
-
+    let query (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : 'a list =
+        read (fun rd -> [ while rd.Read() do yield map rd ]) dbUnit
 
     /// Execute paramterized query, read only first record and apply mapping.
-    let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Result<'a option, DbError> =
-        read (fun rd -> if rd.Read () then Some(map rd) else None) dbUnit
+    let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : 'a option =
+        read (fun rd -> if rd.Read() then Some(map rd) else None) dbUnit
+
+    /// Execute an all or none batch of commands.
+    let batch (fn : IDbTransaction -> 'a) (conn : IDbConnection) =
+        use tran = conn.TryBeginTransaction()
+        try
+            fn tran
+        with _ ->
+            tran.TryRollback()
+            reraise ()
 
     module Async =
-        let private tryDoAsync (dbUnit : DbUnit) (fn : DbCommand -> Task<'a>) : Task<Result<'a, DbError>> =
+        let private tryDoAsync (dbUnit : DbUnit) (fn : DbCommand -> Task<'a>) : Task<'a> =
             task {
-                try
-                    do! dbUnit.Command.Connection.TryOpenConnectionAsync(dbUnit.CancellationToken)
-                    let! result = fn (dbUnit.Command :?> DbCommand)
-                    (dbUnit :> IDisposable).Dispose ()
-                    return (Ok result)
-                with
-                | DbFailureException e -> return Error e
-            }
+                do! dbUnit.Command.Connection.TryOpenConnectionAsync(dbUnit.CancellationToken)
+                let! result = fn (dbUnit.Command :?> DbCommand)
+                (dbUnit :> IDisposable).Dispose()
+                return result }
 
         /// Asynchronously execute parameterized query with no results.
-        let exec (dbUnit : DbUnit) : Task<Result<unit, DbError>> =
+        let exec (dbUnit : DbUnit) : Task<unit> =
             tryDoAsync dbUnit (fun (cmd : DbCommand) -> task {
                 let! _ = cmd.ExecAsync(dbUnit.CancellationToken)
-                return ()
-            })
+                return () })
 
         /// Asynchronously execute parameterized query many times with no results
-        let execMany (param : RawDbParams list) (dbUnit : DbUnit) : Task<Result<unit, DbError>> =
+        let execMany (param : RawDbParams list) (dbUnit : DbUnit) : Task<unit> =
             tryDoAsync dbUnit (fun (cmd : DbCommand) -> task {
                 for p in param do
                     let dbParams = DbParams.create p
                     let! _ = cmd.SetDbParams(dbParams).ExecAsync(dbUnit.CancellationToken)
                     ()
-
-                return ()
-            })
+                return () })
 
         /// Execute scalar query and box the result.
-        let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Task<Result<'a, DbError>> =
+        let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Task<'a> =
             tryDoAsync dbUnit (fun (cmd : DbCommand) -> task {
-                let! value = cmd.ExecScalarAsync (dbUnit.CancellationToken)
-                return convert value
-            })
+                let! value = cmd.ExecScalarAsync(dbUnit.CancellationToken)
+                return convert value })
 
         /// Asynchronously execute paramterized query and return IDataReader
-        let read (fn : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<Result<'a, DbError>> =
+        let read (fn : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<'a> =
             tryDoAsync dbUnit (fun (cmd : DbCommand) -> task {
                 use! rd = cmd.ExecReaderAsync(dbUnit.CommandBehavior, dbUnit.CancellationToken)
-                return fn (rd :?> 'reader)
-            })
+                return fn (rd :?> 'reader) })
 
         /// Asynchronously execute parameterized query, enumerate all records and apply mapping.
-        let query (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<Result<'a list, DbError>> =
-            read (fun rd -> [ while rd.Read () do map rd ]) dbUnit
+        let query (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<'a list> =
+            read (fun rd -> [ while rd.Read() do map rd ]) dbUnit
 
         /// Asynchronously execute paramterized query, read only first record and apply mapping.
-        let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<Result<'a option, DbError>> =
-            read (fun rd -> if rd.Read () then Some(map rd) else None) dbUnit
+        let querySingle (map : 'reader -> 'a when 'reader :> IDataReader) (dbUnit : DbUnit) : Task<'a option> =
+            read (fun rd -> if rd.Read() then Some(map rd) else None) dbUnit
+
+        /// Execute an all or none batch of commands asynchronously.
+        let batch (fn : IDbTransaction -> Task<unit>) (conn : IDbConnection) =
+            task {
+                use! tran = conn.TryBeginTransactionAsync()
+                try
+                    return! fn tran
+                with _ ->
+                    do! tran.TryRollbackAsync()
+            }
