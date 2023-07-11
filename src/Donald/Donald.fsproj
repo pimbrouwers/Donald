@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <AssemblyName>Donald</AssemblyName>
-    <Version>10.0.0</Version>
+    <Version>10.0.1</Version>
 
     <!-- General info -->
     <Description>Functional F# interface for ADO.NET.</Description>
@@ -35,7 +35,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+    <PackageReference Update="FSharp.Core" Version="6.0.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.*" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
