@@ -35,7 +35,7 @@ module IDataReaderExtensions =
         member x.ReadByteOption(name : string) = name |> x.GetOption(fun i -> x.GetByte(i))
 
         /// Safely retrieve Char Option
-        member x.ReadCharOption(name : string) = name |> x.GetOption(fun i -> x.GetString(i).[0])
+        member x.ReadCharOption(name : string) = name |> x.GetOption(fun i -> x.GetChar(i))
 
         /// Safely retrieve DateTime Option
         member x.ReadDateTimeOption(name : string) = name |> x.GetOption(fun i -> x.GetDateTime(i))

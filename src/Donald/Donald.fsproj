@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <AssemblyName>Donald</AssemblyName>
-    <Version>10.0.1</Version>
+    <Version>10.0.2</Version>
 
     <!-- General info -->
     <Description>Functional F# interface for ADO.NET.</Description>
@@ -11,7 +11,7 @@
     <NeutralLanguage>en-CA</NeutralLanguage>
 
     <!-- Build config -->
-    <TargetFrameworks>net6.0</TargetFrameworks>
+    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
     <DebugType>embedded</DebugType>
     <OutputType>Library</OutputType>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

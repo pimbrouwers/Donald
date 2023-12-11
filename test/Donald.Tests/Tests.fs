@@ -11,16 +11,6 @@ open System.Threading
 
 let conn = new SQLiteConnection("Data Source=:memory:;Version=3;New=true;")
 
-// let shouldNotBeError pred (result : Result<'a, DbError>) =
-//     match result with
-//     | Ok result' -> pred result'
-//     | Error e -> sprintf "DbResult should not be Error: %A" e |> should equal false
-
-// let shouldNotBeOk (result : Result<'a, DbError>) =
-//     match result with
-//     | Error ex -> ex |> should be instanceOfType<DbError>
-//     | _ -> "DbResult should not be Ok" |> should equal false
-
 type Author =
     { AuthorId : int
       FullName : string }
@@ -55,7 +45,11 @@ type DbCollection () =
 type ExecutionTests() =
     [<Fact>]
     member _.``SELECT all sql types`` () =
-        let sql = "
+        let guidParam = Guid.NewGuid ()
+        let dateTimeParam = DateTime.Now
+
+        conn
+        |> Db.newCommand "
             SELECT  @p_null AS p_null
             , @p_string AS p_string
             , @p_ansi_string AS p_ansi_string
@@ -71,31 +65,97 @@ type ExecutionTests() =
             , @p_int32 AS p_int32
             , @p_int64 AS p_int64
             , @p_date_time AS p_date_time"
+        |> Db.setParams [
+            "p_null", SqlType.Null
+            "p_string", sqlString "p_string"
+            "p_ansi_string", SqlType.AnsiString "p_ansi_string"
+            "p_boolean", sqlBoolean false
+            "p_byte", sqlByte Byte.MinValue
+            "p_char", sqlChar 'a'
+            "p_ansi_char", SqlType.AnsiChar Char.MinValue
+            "p_decimal", sqlDecimal 0.0M
+            "p_double", sqlDouble 0.0
+            "p_float", sqlFloat 0.0
+            "p_guid", sqlGuid guidParam
+            "p_int16", sqlInt16 16s
+            "p_int32", sqlInt32 32
+            "p_int64", sqlInt64 64L
+            "p_date_time", sqlDateTime dateTimeParam ]
+        |> Db.querySingle (fun rd ->
+            {|
+                p_null = rd.ReadString "p_null"
+                p_string = rd.ReadString "p_string"
+                p_ansi_string = rd.ReadString "p_ansi_string"
+                p_boolean = rd.ReadBoolean "p_boolean"
+                p_byte = rd.ReadByte "p_byte"
+                p_char = rd.ReadChar "p_char"
+                p_ansi_char = rd.ReadChar "p_ansi_char"
+                p_decimal = rd.ReadDecimal "p_decimal"
+                p_double = rd.ReadDouble "p_double"
+                p_float = rd.ReadFloat "p_float"
+                p_guid = rd.ReadGuid "p_guid"
+                p_int16 = rd.ReadInt16 "p_int16"
+                p_int32 = rd.ReadInt32 "p_int32"
+                p_int64 = rd.ReadInt64 "p_int64"
+                p_date_time = rd.ReadDateTime "p_date_time"
+            |})
+        |> fun result ->
+            result.IsSome |> should equal true
+            result.Value.p_null |> should equal ""
+            result.Value.p_string |> should equal "p_string"
+            result.Value.p_ansi_string |> should equal "p_ansi_string"
+            result.Value.p_boolean |> should equal false
+            result.Value.p_byte |> should equal Byte.MinValue
+            result.Value.p_char |> should equal 'a'
+            result.Value.p_ansi_char |> should equal Char.MinValue
+            result.Value.p_decimal |> should equal 0.0M
+            result.Value.p_double |> should equal 0.0
+            result.Value.p_float |> should equal 0.0
+            result.Value.p_guid |> should equal guidParam
+            result.Value.p_int16 |> should equal 16s
+            result.Value.p_int32 |> should equal 32
+            result.Value.p_int64 |> should equal 64L
+            result.Value.p_date_time |> should equal dateTimeParam
 
+    [<Fact>]
+    member _.``SELECT all sql types using raw input`` () =
         let guidParam = Guid.NewGuid ()
         let dateTimeParam = DateTime.Now
-        let param =
-            [
-                "p_null", SqlType.Null
-                "p_string", sqlString "p_string"
-                "p_ansi_string", SqlType.AnsiString "p_ansi_string"
-                "p_boolean", sqlBoolean false
-                "p_byte", sqlByte Byte.MinValue
-                "p_char", sqlChar 'a'
-                "p_ansi_char", SqlType.AnsiChar Char.MinValue
-                "p_decimal", sqlDecimal 0.0M
-                "p_double", sqlDouble 0.0
-                "p_float", sqlFloat 0.0
-                "p_guid", sqlGuid guidParam
-                "p_int16", sqlInt16 16s
-                "p_int32", sqlInt32 32
-                "p_int64", sqlInt64 64L
-                "p_date_time", sqlDateTime dateTimeParam
-            ]
 
         conn
-        |> Db.newCommand sql
-        |> Db.setParams param
+        |> Db.newCommand "
+            SELECT  @p_null AS p_null
+            , @p_string AS p_string
+            , @p_ansi_string AS p_ansi_string
+            , @p_boolean AS p_boolean
+            , @p_byte AS p_byte
+            , @p_char AS p_char
+            , @p_ansi_char AS p_ansi_char
+            , @p_decimal AS p_decimal
+            , @p_double AS p_double
+            , @p_float AS p_float
+            , @p_guid AS p_guid
+            , @p_int16 AS p_int16
+            , @p_int32 AS p_int32
+            , @p_int64 AS p_int64
+            , @p_date_time AS p_date_time"
+        |> Db.setParamsRaw [
+            "p_null", null
+            "p_string", "p_string"
+            "p_ansi_string", "p_ansi_string"
+            "p_boolean", false
+            "p_byte", Byte.MinValue
+            "p_char", 'a'
+            "p_ansi_char",Char.MinValue
+            "p_decimal",  0.0M
+            "p_double", 0.0
+            "p_float", 0.0
+            "p_guid", guidParam
+            "p_int16", 16s
+            "p_int32", 32
+            "p_int64", 64L
+            "p_date_time", dateTimeParam
+        ]
         |> Db.querySingle (fun rd ->
             {|
                 p_null = rd.ReadString "p_null"
@@ -374,6 +434,28 @@ type ExecutionTests() =
         |> fun result -> result.Length |> should equal 2
 
     [<Fact>]
+    member _.``INSERT MANY RAW authors then count to verify`` () =
+        let sql = "INSERT INTO author (full_name) VALUES (@full_name);"
+
+        conn
+        |> Db.newCommand sql
+        |> Db.execManyRaw
+            [ [ "full_name", "Tommy Mouse" ]
+              [ "full_name", "Jerry Cat" ] ]
+        |> ignore
+
+        let sql = "
+            SELECT  author_id
+                  , full_name
+            FROM    author
+            WHERE   full_name IN ('Tommy Mouse', 'Jerry Cat')"
+
+        conn
+        |> Db.newCommand sql
+        |> Db.query Author.FromReader
+        |> fun result -> result.Length |> should equal 2
+
+    [<Fact>]
     member _.``INSERT TRAN MANY authors then count to verify async`` () =
         use tran = conn.TryBeginTransaction()
 
@@ -404,6 +486,50 @@ type ExecutionTests() =
         |> Db.Async.query Author.FromReader
         |> Async.AwaitTask
         |> Async.RunSynchronously
+        |> fun result -> result.Length |> should equal 2
+
+    [<Fact>]
+    member _.``BATCH INSERT authors then count to verify async`` () =
+        conn
+        |> Db.batch (fun tran ->
+            for fullName in [ "Aquaman"; "Flash" ] do
+                tran
+                |> Db.newCommandForTransaction "INSERT INTO author (full_name) VALUES (@full_name)"
+                |> Db.setParams ["full_name", SqlType.String fullName ]
+                |> Db.exec)
+
+        let sql = "
+            SELECT  author_id
+                  , full_name
+            FROM    author
+            WHERE   full_name IN ('Aquaman', 'Flash')"
+
+        conn
+        |> Db.newCommand sql
+        |> Db.query Author.FromReader
+        |> fun result -> result.Length |> should equal 2
+
+    [<Fact>]
+    member _.``Async BATCH INSERT authors then count to verify async`` () =
+        conn
+        |> Db.Async.batch (fun tran ->
+            tran
+            |> Db.newCommandForTransaction "INSERT INTO author (full_name) VALUES (@full_name)"
+            |> Db.Async.execManyRaw [
+                ["full_name", "Wonder Woman" ]
+                ["full_name", "Hawk Girl" ] ] )
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
+        let sql = "
+            SELECT  author_id
+                  , full_name
+            FROM    author
+            WHERE   full_name IN ('Wonder Woman', 'Hawk Girl')"
+
+        conn
+        |> Db.newCommand sql
+        |> Db.query Author.FromReader
         |> fun result -> result.Length |> should equal 2
 
     [<Fact>]

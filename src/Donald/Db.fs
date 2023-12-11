@@ -29,9 +29,14 @@ module Db =
         dbUnit.Command.CommandType <- commandType
         dbUnit
 
-    /// Configure the command parameters for the provided DbUnit
+    /// Configure the strongly-typed command parameters for the provided DbUnit
     let setParams (param : RawDbParams) (dbUnit : DbUnit) : DbUnit =
-        dbUnit.Command.SetDbParams(DbParams.create param) |> ignore
+        dbUnit.Command.SetParams(DbParams.create param) |> ignore
+        dbUnit
+
+    /// Configure the command parameters for the provided DbUnit
+    let setParamsRaw (param : (string * obj) list) (dbUnit : DbUnit) : DbUnit =
+        dbUnit.Command.SetParamsRaw(param) |> ignore
         dbUnit
 
     /// Configure the timeout for the provided DbUnit
@@ -61,12 +66,15 @@ module Db =
     let exec (dbUnit : DbUnit) : unit =
         tryDo dbUnit (fun cmd -> cmd.Exec())
 
-    /// Execute parameterized query many times with no results.
+    /// Execute a strongly-type parameterized query many times with no results.
     let execMany (param : RawDbParams list) (dbUnit : DbUnit) : unit =
-        dbUnit.Command.Connection.TryOpenConnection()
-        for p in param do
-            let dbParams = DbParams.create p
-            dbUnit.Command.SetDbParams(dbParams).Exec()
+        tryDo dbUnit (fun cmd ->
+            for p in param do cmd.SetParams(DbParams.create p).Exec())
+
+    /// Execute a parameterized query many times with no results.
+    let execManyRaw (param : ((string * obj) list) list) (dbUnit : DbUnit) : unit =
+        tryDo dbUnit (fun cmd ->
+            for p in param do cmd.SetParamsRaw(p).Exec())
 
     /// Execute scalar query and box the result.
     let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : 'a =
@@ -90,9 +98,12 @@ module Db =
 
     /// Execute an all or none batch of commands.
     let batch (fn : IDbTransaction -> 'a) (conn : IDbConnection) =
+        conn.TryOpenConnection()
         use tran = conn.TryBeginTransaction()
         try
-            fn tran
+            let result = fn tran
+            tran.TryCommit()
+            result
         with _ ->
             tran.TryRollback()
             reraise ()
@@ -111,14 +122,17 @@ module Db =
                 let! _ = cmd.ExecAsync(dbUnit.CancellationToken)
                 return () })
 
-        /// Asynchronously execute parameterized query many times with no results
+        /// Asynchronously execute a strongly-type parameterized query many times with no results.
         let execMany (param : RawDbParams list) (dbUnit : DbUnit) : Task<unit> =
             tryDoAsync dbUnit (fun (cmd : DbCommand) -> task {
                 for p in param do
-                    let dbParams = DbParams.create p
-                    let! _ = cmd.SetDbParams(dbParams).ExecAsync(dbUnit.CancellationToken)
-                    ()
-                return () })
+                    do! cmd.SetParams(DbParams.create p).ExecAsync(dbUnit.CancellationToken) })
+
+        /// Asynchronously execute a parameterized query many times with no results.
+        let execManyRaw (param : ((string * obj) list) list) (dbUnit : DbUnit) : Task<unit> =
+            tryDoAsync dbUnit (fun cmd -> task {
+                for p in param do
+                    do! cmd.SetParamsRaw(p).ExecAsync(dbUnit.CancellationToken) })
 
         /// Execute scalar query and box the result.
         let scalar (convert : obj -> 'a) (dbUnit : DbUnit) : Task<'a> =
@@ -142,10 +156,13 @@ module Db =
 
         /// Execute an all or none batch of commands asynchronously.
         let batch (fn : IDbTransaction -> Task<unit>) (conn : IDbConnection) =
-            task {
-                use! tran = conn.TryBeginTransactionAsync()
-                try
-                    return! fn tran
-                with _ ->
-                    do! tran.TryRollbackAsync()
-            }
+            conn.TryOpenConnection()
+            use tran = conn.TryBeginTransaction()
+            try
+                task {
+                    let! result = fn tran
+                    tran.TryCommit()
+                    return result }
+            with _ ->
+                tran.TryRollback()
+                reraise()

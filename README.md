@@ -49,16 +49,13 @@ module Author =
       { FullName = rd.ReadString "full_name" }
 
 let authors (conn : IDbConnection) : Author list =
-    let sql = "
-    SELECT  full_name
-    FROM    author
-    WHERE   author_id = @author_id"
-
-    let param = [ "author_id", sqlInt32 1 ]
-
     conn
-    |> Db.newCommand sql
-    |> Db.setParams param
+    |> Db.newCommand "
+        SELECT  full_name
+        FROM    author
+        WHERE   author_id = @author_id"
+    |> Db.setParams [
+        "author_id", SqlType.Int32 1 ]
     |> Db.query Author.ofDataReader
 ```
 
@@ -86,127 +83,101 @@ module Author -
 > Important: Donald is set to use `CommandBehavior.SequentialAccess` by default. See [performance](#performance) for more information.
 
 ```fsharp
-let sql = "SELECT author_id, full_name FROM author"
-
 conn
-|> Db.newCommand sql
+|> Db.newCommand "SELECT author_id, full_name FROM author"
 |> Db.query Author.ofDataReader // Author list
 
 // Async
 conn
-|> Db.newCommand sql
+|> Db.newCommand "SELECT author_id, full_name FROM author"
 |> Db.Async.query Author.ofDataReader // Task<Author list>
 ```
 
 ### Query for a single strongly-typed result
 
 ```fsharp
-let sql = "SELECT author_id, full_name FROM author"
-
 conn
-|> Db.newCommand sql
-|> Db.setParams [ "author_id", sqlInt32 1 ]
+|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.setParams [ "author_id", SqlType.Int32 1 ]
 |> Db.querySingle Author.ofDataReader // Author option
 
 // Async
 conn
-|> Db.newCommand sql
-|> Db.setParams [ "author_id", sqlInt32 1 ]
+|> Db.newCommand "SELECT author_id, full_name FROM author"
+|> Db.setParams [ "author_id", SqlType.Int32 1 ]
 |> Db.Async.querySingle Author.ofDataReader // Task<Author option>
 ```
 
 ### Execute a statement
 
 ```fsharp
-let sql = "INSERT INTO author (full_name)"
-
-// Strongly typed input parameters
-let param = [ "full_name", sqlString "John Doe" ]
-
 conn
-|> Db.newCommand sql
-|> Db.setParams param
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
 |> Db.exec // unit
 
 // Async
 conn
-|> Db.newCommand sql
-|> Db.setParams param
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.setParams [ "full_name", SqlType.String "John Doe" ]
 |> Db.Async.exec // Task<unit>
 ```
 
 ### Execute a statement many times
 
 ```fsharp
-let sql = "INSERT INTO author (full_name)"
-
-let param =
-    [ "full_name", sqlString "John Doe"
-      "full_name", sqlString "Jane Doe" ]
-
 conn
-|> Db.newCommand sql
-|> Db.execMany param
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.execMany [
+    "full_name", SqlType.String "John Doe"
+    "full_name", SqlType.String "Jane Doe" ] // unit
 
 // Async
 conn
-|> Db.newCommand sql
-|> Db.Async.execMany param
-```
-
-```fsharp
-let sql = "INSERT INTO author (full_name)"
-
-let param = [ "full_name", sqlString "John Doe" ]
-
-conn
-|> Db.newCommand sql
-|> Db.setParams param
-|> Db.exec // unit
-
-// Async
-conn
-|> Db.newCommand sql
-|> Db.setParams param
-|> Db.Async.exec // Task<unit>
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.Async.execMany [
+    "full_name", SqlType.String "John Doe"
+    "full_name", SqlType.String "Jane Doe" ] //Task<unit>
 ```
 
 ### Execute statements within an explicit transaction
 
-Donald exposes most of it's functionality through the `Db` module. But three `IDbTransaction` type extension are exposed to make dealing with transactions safer:
+This can be accomplished in two ways:
 
-- `TryBeginTransaction()` opens a new transaction or raises `DbTransactionError`
-- `TryCommit()` commits a transaction or raises `DbTransactionError` and rolls back
-- `TryRollback()` rolls back a transaction or raises `DbTransactionError`
+1. Using `Db.batch` or `Db.Async.batch` which processes the action in an *all-or-none* fashion.
+
+```fsharp
+conn
+|> Db.batch (fun tran ->
+    for fullName in [ "John Doe"; "Jane Doe" ] do
+        tran
+        |> Db.newCommandForTransaction "INSERT INTO author (full_name) VALUES (@full_name)"
+        |> Db.setParams ["full_name", SqlType.String fullName ]
+        |> Db.exec)
+```
+
+2. Using the `IDbCommand` extensions, `TryBeginTransaction()`, `TryCommit()` and `TryRollback()`.
 
 ```fsharp
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
 use tran = conn.TryBeginTransaction()
 
-let insertSql = "INSERT INTO author (full_name)"
-let param = [ "full_name", sqlString "John Doe" ]
+conn
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.setTransaction tran
+|> Db.setParams [ "full_name", sqlString "John Doe" ]
+|> Db.exec
 
-let insertResult =
-    conn
-    |> Db.newCommand insertSql
-    |> Db.setTransaction tran
-    |> Db.setParams param
-    |> Db.exec
+|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.setTransaction tran
+|> Db.setParams [ "full_name", sqlString "Jane Doe" ]
+|> Db.exec
 
-match insertResult with
-| Ok () ->
-    // Attempt to commit, rollback on failure and throw CouldNotCommitTransactionError
-    tran.TryCommit ()
+// Attempt to commit, will rollback automatically on failure, or throw DbTransactionException
+tran.TryCommit ()
 
-    conn
-    |> Db.newCommand "SELECT author_id, full_name FROM author WHERE full_name = @full_name"
-    |> Db.setParams param
-    |> Db.querySingle Author.ofDataReader
-
-| Error e ->
-    // Attempt to commit, rollback on failure and throw CouldNotCommitTransactionError
-    tran.TryRollback ()
-    Error e
+// Will rollback or throw DbTransactionException
+// tran.TryRollback ()
 ```
 
 ## Command Parameters
@@ -237,13 +208,13 @@ let p1 : SqlType = SqlType.Null
 let p2 : SqlType = SqlType.Int32 1
 ```
 
-Helpers also exist which implicitly call the respective F# conversion function. Which are especially useful when you are working with value types in your program.
+Helpers also exist which implicitly call the respective F# conversion function. Which can be especially useful when you are working with value types in your program.
 
 ```fsharp
 let p1 : SqlType = sqlInt32 "1" // equivalent to SqlType.Int32 (int "1")
 ```
 
-> `string` is used here **only** for demonstration purposes.
+###
 
 ## Reading Values
 
@@ -305,6 +276,11 @@ type DbExecutionException =
 type DbReaderException =
     inherit Exception
     val FieldName : string option
+
+/// Details of failure to commit or rollback an IDbTransaction
+type DbTransactionException =
+    inherit Exception
+    val Step : DbTransactionStep
 ```
 
 ## Performance

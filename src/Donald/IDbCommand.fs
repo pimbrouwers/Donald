@@ -39,7 +39,18 @@ module IDbCommandExtensions =
             with
             | :? DbException as ex -> raise (DbExecutionException(x, ex))
 
-        member internal x.SetDbParams(dbParams : DbParams) =
+        member internal x.SetParamsRaw(rawDbParams : (string * obj) list) =
+            x.Parameters.Clear()
+            for (name, value) in rawDbParams do
+                let p = x.CreateParameter()
+                p.ParameterName <- name
+                match isNull value with
+                | true -> p.Value <- DBNull.Value
+                | false -> p.Value <- value
+                x.Parameters.Add(p) |> ignore
+            x
+
+        member internal x.SetParams(dbParams : DbParams) =
             let setParamValue (dbType : DbType) (p : IDbDataParameter) (v : obj) =
                 p.DbType <- dbType
                 if isNull v then p.Value <- DBNull.Value
@@ -57,8 +68,8 @@ module IDbCommandExtensions =
                 | SqlType.AnsiString v -> setParamValue DbType.AnsiString p v
                 | SqlType.Boolean v -> setParamValue DbType.Boolean p v
                 | SqlType.Byte v -> setParamValue DbType.Byte p v
-                | SqlType.Char v -> setParamValue DbType.AnsiString p v
-                | SqlType.AnsiChar v -> setParamValue DbType.String p v
+                | SqlType.Char v
+                | SqlType.AnsiChar v -> setParamValue DbType.Object p v
                 | SqlType.Decimal v -> setParamValue DbType.Decimal p v
                 | SqlType.Double v
                 | SqlType.Float v -> setParamValue DbType.Double p v
@@ -76,12 +87,16 @@ module IDbCommandExtensions =
             x
 
     type DbCommand with
-        member internal x.SetDbParams(param : DbParams) =
-            (x :> IDbCommand).SetDbParams(param) :?> DbCommand
+        member internal x.SetParamsRaw(rawParams : (string * obj) list) =
+            (x :> IDbCommand).SetParamsRaw(rawParams) :?> DbCommand
+
+        member internal x.SetParams(param : DbParams) =
+            (x :> IDbCommand).SetParams(param) :?> DbCommand
 
         member internal x.ExecAsync(?ct: CancellationToken) = task {
             try
-                return! x.ExecuteNonQueryAsync(cancellationToken = defaultArg ct CancellationToken.None)
+                let! _ = x.ExecuteNonQueryAsync(cancellationToken = defaultArg ct CancellationToken.None)
+                ()
             with
             | :? DbException as ex -> return raise (DbExecutionException(x, ex))
         }

@@ -87,7 +87,6 @@ type DbConnectionException =
     new() = { inherit Exception(); ConnectionString = None }
     new(message : string) = { inherit Exception(message); ConnectionString = None }
     new(message : string, inner : Exception) = { inherit Exception(message, inner); ConnectionString = None }
-    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); ConnectionString = None }
     new(connection : IDbConnection, inner : Exception) = { inherit Exception($"Failed to establish database connection: {connection.ConnectionString}", inner); ConnectionString = Some connection.ConnectionString}
 
 /// Details the steps of database a transaction.
@@ -100,7 +99,6 @@ type DbExecutionException =
     new() = { inherit Exception(); Statement = None }
     new(message : string) = { inherit Exception(message); Statement = None }
     new(message : string, inner : Exception) = { inherit Exception(message, inner); Statement = None }
-    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); Statement = None }
     new(cmd : IDbCommand, inner : Exception) = { inherit Exception($"Failed to process database command:\n{cmd.ToDetailString()}", inner); Statement = Some (cmd.ToDetailString()) }
 
 /// Details of failure to process a database transaction.
@@ -110,7 +108,6 @@ type DbTransactionException =
     new() = { inherit Exception(); Step = None }
     new(message : string) = { inherit Exception(message); Step = None }
     new(message : string, inner : Exception) = { inherit Exception(message, inner); Step = None }
-    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); Step = None }
     new(step : DbTransactionStep, inner : Exception) = { inherit Exception($"Failed to process transaction at step {step}", inner); Step = Some step }
 
 /// Details of failure to access and/or cast an IDataRecord field.
@@ -120,7 +117,6 @@ type DbReaderException =
     new() = { inherit Exception(); FieldName = None }
     new(message : string) = { inherit Exception(message); FieldName = None }
     new(message : string, inner : Exception) = { inherit Exception(message, inner); FieldName = None }
-    new(info : SerializationInfo, context : StreamingContext) = { inherit Exception(info, context); FieldName = None }
     new(fieldName : string, inner : IndexOutOfRangeException) = { inherit Exception($"Failed to read database field: '{fieldName}'", inner); FieldName = Some fieldName }
     new(fieldName : string, inner : InvalidCastException) = { inherit Exception($"Failed to read database field: '{fieldName}'", inner); FieldName = Some fieldName }
 
