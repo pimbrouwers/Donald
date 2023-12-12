@@ -154,22 +154,17 @@ conn
         |> Db.exec)
 ```
 
-2. Using the `IDbCommand` extensions, `TryBeginTransaction()`, `TryCommit()` and `TryRollback()`.
+2. Using the extension methods: `TryBeginTransaction()`, `TryCommit()` and `TryRollback()`.
 
 ```fsharp
 // Safely begin transaction or throw CouldNotBeginTransactionError on failure
 use tran = conn.TryBeginTransaction()
 
-conn
-|> Db.newCommand "INSERT INTO author (full_name)"
-|> Db.setTransaction tran
-|> Db.setParams [ "full_name", sqlString "John Doe" ]
-|> Db.exec
-
-|> Db.newCommand "INSERT INTO author (full_name)"
-|> Db.setTransaction tran
-|> Db.setParams [ "full_name", sqlString "Jane Doe" ]
-|> Db.exec
+for fullName in [ "John Doe"; "Jane Doe" ] do
+    tran
+    |> Db.newCommandForTransaction "INSERT INTO author (full_name) VALUES (@full_name)"
+    |> Db.setParams ["full_name", SqlType.String fullName ]
+    |> Db.exec
 
 // Attempt to commit, will rollback automatically on failure, or throw DbTransactionException
 tran.TryCommit ()
