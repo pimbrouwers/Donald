@@ -3,7 +3,6 @@ namespace Donald
 open System
 open System.Data
 open System.Data.Common
-open System.Runtime.Serialization
 open System.Threading
 
 [<AutoOpen>]
@@ -27,8 +26,6 @@ module DbCommandExtensions =
 
 /// Represents a configurable database command.
 type DbUnit (cmd : IDbCommand) =
-    let commandBehavior = CommandBehavior.SequentialAccess
-
     member _.Command = cmd
     member val CommandBehavior = CommandBehavior.SequentialAccess with get, set
     member val CancellationToken = CancellationToken.None with get,set
@@ -43,22 +40,22 @@ type DbUnit (cmd : IDbCommand) =
 [<RequireQualifiedAccess>]
 type SqlType =
     | Null
-    | String     of string
+    | String of string
     | AnsiString of string
-    | Boolean    of bool
-    | Byte       of byte
-    | Char       of char
-    | AnsiChar   of char
-    | Decimal    of decimal
-    | Double     of double
-    | Float      of float
-    | Guid       of Guid
-    | Int16      of int16
-    | Int32      of int32
-    | Int        of int32
-    | Int64      of int64
-    | DateTime   of DateTime
-    | Bytes      of byte[]
+    | Boolean of bool
+    | Byte of byte
+    | Char of char
+    | AnsiChar of char
+    | Decimal of decimal
+    | Double of double
+    | Float of float
+    | Guid of Guid
+    | Int16 of int16
+    | Int32 of int32
+    | Int of int32
+    | Int64 of int64
+    | DateTime of DateTime
+    | Bytes of byte[]
 
 /// Specifies an input parameter for an IDbCommand.
 [<Struct>]

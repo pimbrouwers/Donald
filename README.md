@@ -42,11 +42,8 @@ dotnet add package Donald
 ```fsharp
 open Donald
 
-type Author = { FullName : string }
-
-module Author =
-  let ofDataReader (rd : IDataReader) : Author =
-      { FullName = rd.ReadString "full_name" }
+type Author =
+    { FullName : string }
 
 let authors (conn : IDbConnection) : Author list =
     conn
@@ -56,7 +53,8 @@ let authors (conn : IDbConnection) : Author list =
         WHERE   author_id = @author_id"
     |> Db.setParams [
         "author_id", SqlType.Int32 1 ]
-    |> Db.query Author.ofDataReader
+    |> Db.query (fun rd ->
+        { FullName = rd.ReadString "full_name" })
 ```
 
 ## An Example using SQLite

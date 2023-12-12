@@ -26,80 +26,104 @@ module IDataReaderExtensions =
             x.GetOrdinalOption(name) |> Option.map fn
 
         /// Safely retrieve String Option
-        member x.ReadStringOption(name : string) = name |> x.GetOrdinalOption |> Option.map(fun i -> x.GetString(i))
+        member x.ReadStringOption(name : string) =
+            name |> x.GetOrdinalOption |> Option.map(fun i -> x.GetString(i))
 
         /// Safely retrieve Boolean Option
-        member x.ReadBooleanOption(name : string) = name |> x.GetOption(fun i -> x.GetBoolean(i))
+        member x.ReadBooleanOption(name : string) =
+            name |> x.GetOption(fun i -> x.GetBoolean(i))
 
         /// Safely retrieve Byte Option
-        member x.ReadByteOption(name : string) = name |> x.GetOption(fun i -> x.GetByte(i))
+        member x.ReadByteOption(name : string) =
+            name |> x.GetOption(fun i -> x.GetByte(i))
 
         /// Safely retrieve Char Option
-        member x.ReadCharOption(name : string) = name |> x.GetOption(fun i -> x.GetChar(i))
+        member x.ReadCharOption(name : string) =
+            name |> x.GetOption(fun i -> x.GetChar(i))
 
         /// Safely retrieve DateTime Option
-        member x.ReadDateTimeOption(name : string) = name |> x.GetOption(fun i -> x.GetDateTime(i))
+        member x.ReadDateTimeOption(name : string) =
+            name |> x.GetOption(fun i -> x.GetDateTime(i))
 
         /// Safely retrieve Decimal Option
-        member x.ReadDecimalOption(name : string) = name |> x.GetOption(fun i -> x.GetDecimal(i))
+        member x.ReadDecimalOption(name : string) =
+            name |> x.GetOption(fun i -> x.GetDecimal(i))
 
         /// Safely retrieve Double Option
-        member x.ReadDoubleOption(name : string) = name |> x.GetOption(fun i -> x.GetDouble(i))
+        member x.ReadDoubleOption(name : string) =
+            name |> x.GetOption(fun i -> x.GetDouble(i))
 
         /// Safely retrieve Float Option
-        member x.ReadFloatOption(name : string) = x.ReadDoubleOption name
+        member x.ReadFloatOption(name : string) =
+            x.ReadDoubleOption name
 
         /// Safely retrieve Guid Option
-        member x.ReadGuidOption(name : string) = name |> x.GetOption(fun i -> x.GetGuid(i))
+        member x.ReadGuidOption(name : string) =
+            name |> x.GetOption(fun i -> x.GetGuid(i))
 
         /// Safely retrieve Int16 Option
-        member x.ReadInt16Option (name : string) = name |> x.GetOption(fun i -> x.GetInt16(i))
+        member x.ReadInt16Option (name : string) =
+            name |> x.GetOption(fun i -> x.GetInt16(i))
 
         /// Safely retrieve Int32 Option
-        member x.ReadInt32Option (name : string) = name |> x.GetOption(fun i -> x.GetInt32(i))
+        member x.ReadInt32Option (name : string) =
+            name |> x.GetOption(fun i -> x.GetInt32(i))
 
         /// Safely retrieve Int64 Option
-        member x.ReadInt64Option (name : string) = name |> x.GetOption(fun i -> x.GetInt64(i))
+        member x.ReadInt64Option (name : string) =
+            name |> x.GetOption(fun i -> x.GetInt64(i))
 
         // ------------
         // Defaults
         // ------------
 
         /// Safely retrieve String or return provided default
-        member x.ReadString(name : string) = x.ReadStringOption name |> Option.defaultValue String.Empty
+        member x.ReadString(name : string) =
+            x.ReadStringOption name |> Option.defaultValue String.Empty
 
         /// Safely retrieve Boolean or return provided default
-        member x.ReadBoolean(name : string) = x.ReadBooleanOption name |> Option.defaultValue false
+        member x.ReadBoolean(name : string) =
+            x.ReadBooleanOption name |> Option.defaultValue false
 
         /// Safely retrieve Byte or return provided default
-        member x.ReadByte(name : string) = x.ReadByteOption name |> Option.defaultValue Byte.MinValue
+        member x.ReadByte(name : string) =
+            x.ReadByteOption name |> Option.defaultValue Byte.MinValue
 
         /// Safely retrieve Char or return provided default
-        member x.ReadChar(name : string) = x.ReadCharOption name |> Option.defaultValue Char.MinValue
+        member x.ReadChar(name : string) =
+            x.ReadCharOption name |> Option.defaultValue Char.MinValue
 
         /// Safely retrieve DateTime or return provided default
-        member x.ReadDateTime(name : string) = x.ReadDateTimeOption name |> Option.defaultValue DateTime.MinValue
+        member x.ReadDateTime(name : string) =
+            x.ReadDateTimeOption name |> Option.defaultValue DateTime.MinValue
 
         /// Safely retrieve Decimal or return provided default
-        member x.ReadDecimal(name : string) = x.ReadDecimalOption name |> Option.defaultValue 0.0M
+        member x.ReadDecimal(name : string) =
+            x.ReadDecimalOption name |> Option.defaultValue 0.0M
 
         /// Safely retrieve Double or return provided default
-        member x.ReadDouble(name : string) = x.ReadDoubleOption name |> Option.defaultValue 0.0
+        member x.ReadDouble(name : string) =
+            x.ReadDoubleOption name |> Option.defaultValue 0.0
 
         /// Safely retrieve Float or return provided default
-        member x.ReadFloat(name : string) = x.ReadFloatOption name |> Option.defaultValue 0.0
+        member x.ReadFloat(name : string) =
+            x.ReadFloatOption name |> Option.defaultValue 0.0
 
         /// Safely retrieve Guid or return provided default
-        member x.ReadGuid(name : string) = x.ReadGuidOption name |> Option.defaultValue Guid.Empty
+        member x.ReadGuid(name : string) =
+            x.ReadGuidOption name |> Option.defaultValue Guid.Empty
 
         /// Safely retrieve Int16 or return provided default
-        member x.ReadInt16 (name : string) = x.ReadInt16Option name |> Option.defaultValue 0s
+        member x.ReadInt16 (name : string) =
+            x.ReadInt16Option name |> Option.defaultValue 0s
 
         /// Safely retrieve Int32 or return provided default
-        member x.ReadInt32 (name : string) = x.ReadInt32Option name |> Option.defaultValue 0
+        member x.ReadInt32 (name : string) =
+            x.ReadInt32Option name |> Option.defaultValue 0
 
         /// Safely retrieve Int64 or return provided default
-        member x.ReadInt64 (name : string) = x.ReadInt64Option name |> Option.defaultValue 0L
+        member x.ReadInt64 (name : string) =
+            x.ReadInt64Option name |> Option.defaultValue 0L
 
         /// Safely retrieve byte[]
         member x.ReadBytesOption(name : string) : byte[] option =
