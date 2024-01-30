@@ -20,10 +20,10 @@ jobs:
           dotnet-version: ${{ matrix.dotnet-version }}
 
       - name: Install dependencies
-        run: dotnet restore
+        run: dotnet restore src/Donald
 
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: dotnet build src/Donald -c Release
 
       - name: Test
-        run: dotnet test -c Release --no-build
+        run: dotnet test test/Donald.Tests -c Release
