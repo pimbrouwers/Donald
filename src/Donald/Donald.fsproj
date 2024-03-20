@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <AssemblyName>Donald</AssemblyName>
-    <Version>10.0.2</Version>
+    <Version>10.1.0</Version>
 
     <!-- General info -->
     <Description>Functional F# interface for ADO.NET.</Description>

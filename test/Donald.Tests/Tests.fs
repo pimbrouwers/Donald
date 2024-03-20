@@ -768,3 +768,20 @@ type ExecutionTests() =
             |> ignore
 
         action |> should throw typeof<Tasks.TaskCanceledException>
+
+    [<Fact>]
+    member _.``SELECT dataTable should produce DataTable matching first result set`` () =
+        let sql = "
+        SELECT 'Donald Chamberlin' AS name, 'Computer Scientist' AS profession
+        UNION
+        SELECT 'LeBron James' As name, 'Professional Athlete' AS profession" 
+
+        let dataTable = 
+            conn
+            |> Db.newCommand sql
+            |> Db.dataTable
+
+        dataTable.Rows[0]["name"] |> should equal "Donald Chamberlin"
+        dataTable.Rows[0]["profession"] |> should equal "Computer Scientist"
+        dataTable.Rows[1]["name"] |> should equal "LeBron James"
+        dataTable.Rows[1]["profession"] |> should equal "Professional Athlete"

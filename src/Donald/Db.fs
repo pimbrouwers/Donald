@@ -108,6 +108,13 @@ module Db =
             tran.TryRollback()
             reraise ()
 
+    /// Execute paramterized query and return DataTable
+    let dataTable (dbUnit : DbUnit) : DataTable =
+        read (fun rd -> 
+            let dt = new DataTable()
+            dt.Load(rd)
+            dt) dbUnit
+
     module Async =
         let private tryDoAsync (dbUnit : DbUnit) (fn : DbCommand -> Task<'a>) : Task<'a> =
             task {
@@ -166,3 +173,10 @@ module Db =
             with _ ->
                 tran.TryRollback()
                 reraise()
+
+        /// Asynchronously Execute paramterized query and return DataTable
+        let dataTable (dbUnit : DbUnit) =
+            read (fun rd -> 
+                let dt = new DataTable()
+                dt.Load(rd)
+                dt) dbUnit
