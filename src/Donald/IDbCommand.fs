@@ -8,19 +8,6 @@ open System.Threading
 [<AutoOpen>]
 module IDbCommandExtensions =
     type IDbCommand with
-        member internal x.ToDetailString() =
-            let cmd  = x :?> DbCommand
-            let param =
-                [ for i in 0 .. cmd.Parameters.Count - 1 ->
-                    let p = cmd.Parameters.[i]
-                    let pName = p.ParameterName
-                    let pValue = if isNull p.Value || p.Value = DBNull.Value then "NULL" else string p.Value
-                    String.Concat("@", pName, " = ", pValue) ]
-                |> fun str -> String.Join(", ", str)
-                |> fun str -> if (String.IsNullOrWhiteSpace(str)) then "--" else str
-
-            String.Join("\n\n", param, cmd.CommandText)
-
         member internal x.Exec() =
             try
                 x.ExecuteNonQuery() |> ignore

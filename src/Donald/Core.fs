@@ -2,27 +2,7 @@ namespace Donald
 
 open System
 open System.Data
-open System.Data.Common
 open System.Threading
-
-[<AutoOpen>]
-module DbCommandExtensions =
-    type DbCommand with
-        member internal x.ToDetailString() =
-            let param =
-                [ for i in 0 .. x.Parameters.Count - 1 ->
-                    let p = x.Parameters.[i]
-                    let pName = p.ParameterName
-                    let pValue = if isNull p.Value || p.Value = DBNull.Value then "NULL" else string p.Value
-                    String.Concat("@", pName, " = ", pValue) ]
-                |> fun str -> String.Join(", ", str)
-                |> fun str -> if (String.IsNullOrWhiteSpace(str)) then "--" else str
-
-            String.Join("\n\n", param, x.CommandText)
-
-    type IDbCommand with
-        member internal x.ToDetailString() =
-            (x :?> DbCommand).ToDetailString()
 
 /// Represents a configurable database command.
 type DbUnit (cmd : IDbCommand) =
@@ -30,7 +10,7 @@ type DbUnit (cmd : IDbCommand) =
     member val CommandBehavior = CommandBehavior.SequentialAccess with get, set
     member val CancellationToken = CancellationToken.None with get,set
 
-    member x.ToDetailString() = x.Command.ToDetailString()
+    member x.ToDetailString() = x.Command.CommandText
 
     interface IDisposable with
         member x.Dispose () =
@@ -96,7 +76,7 @@ type DbExecutionException =
     new() = { inherit Exception(); Statement = None }
     new(message : string) = { inherit Exception(message); Statement = None }
     new(message : string, inner : Exception) = { inherit Exception(message, inner); Statement = None }
-    new(cmd : IDbCommand, inner : Exception) = { inherit Exception($"Failed to process database command:\n{cmd.ToDetailString()}", inner); Statement = Some (cmd.ToDetailString()) }
+    new(cmd : IDbCommand, inner : Exception) = { inherit Exception($"Failed to process database command:\n{cmd.CommandText}", inner); Statement = Some (cmd.CommandText) }
 
 /// Details of failure to process a database transaction.
 type DbTransactionException =
