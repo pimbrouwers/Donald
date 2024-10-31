@@ -110,13 +110,13 @@ conn
 
 ```fsharp
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.newCommand "INSERT INTO author (full_name) VALUES (@full_name)"
 |> Db.setParams [ "full_name", SqlType.String "John Doe" ]
 |> Db.exec // unit
 
 // Async
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.newCommand "INSERT INTO author (full_name) VALUES (@full_name)"
 |> Db.setParams [ "full_name", SqlType.String "John Doe" ]
 |> Db.Async.exec // Task<unit>
 ```
@@ -125,14 +125,14 @@ conn
 
 ```fsharp
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.newCommand "INSERT INTO author (full_name) VALUES (@full_name)"
 |> Db.execMany [
     "full_name", SqlType.String "John Doe"
     "full_name", SqlType.String "Jane Doe" ] // unit
 
 // Async
 conn
-|> Db.newCommand "INSERT INTO author (full_name)"
+|> Db.newCommand "INSERT INTO author (full_name) VALUES (@full_name)"
 |> Db.Async.execMany [
     "full_name", SqlType.String "John Doe"
     "full_name", SqlType.String "Jane Doe" ] //Task<unit>
