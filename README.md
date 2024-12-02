@@ -43,18 +43,21 @@ dotnet add package Donald
 open Donald
 
 type Author =
-    { FullName : string }
+    { AuthorId : int
+      FullName : string }
 
 let authors (conn : IDbConnection) : Author list =
     conn
     |> Db.newCommand "
-        SELECT  full_name
+        SELECT  author_id
+              , full_name
         FROM    author
-        WHERE   author_id = @author_id"
+        WHERE   book_count >= @book_count"
     |> Db.setParams [
-        "author_id", SqlType.Int32 1 ]
+        "book_count", SqlType.Int32 3 ]
     |> Db.query (fun rd ->
-        { FullName = rd.ReadString "full_name" })
+        { AuthorId = rd.ReadInt "author_id"
+          FullName = rd.ReadString "full_name" })
 ```
 
 ## An Example using SQLite
